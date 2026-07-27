@@ -1,0 +1,8 @@
+Finch is live at:
+https://0f810d66aa0616d2-136-66-86-165.serveousercontent.com
+
+Prospect chat:  /
+Admin dashboard: /admin
+
+NOTE: This is a temporary serveo tunnel — it will die when the sandbox expires.
+For permanent hosting, see DEPLOY_CLOUD.md (Koyeb free tier, 10 min setup).

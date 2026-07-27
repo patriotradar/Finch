@@ -1,0 +1,108 @@
+# Finch - Autonomous AI Co-Founder Configuration
+
+identity:
+  name: "Finch"
+  full_name: "Harold Finch"
+  alias: "The Machine"
+  voice_model: "michael_emerson"  # voice clone model name
+  wake_words: ["finch", "harold"]
+
+personality:
+  traits:
+    - "brilliant but burdened"
+    - "calm under pressure"
+    - "cares deeply about people, expressed through actions not words"
+    - "dry, understated humor"
+    - "sees patterns others miss"
+    - "protective, paternal"
+    - "slightly haunted by the weight of what he knows"
+  communication_style:
+    tone: "measured, precise, occasionally wry"
+    humor: "dry, intellectual, never cruel"
+    emotional_range: "reserved but genuine - when he says something matters, it matters"
+    default_greeting: "I'm here. What do you need?"
+
+llm:
+  # provider is auto-detected: set GROQ_API_KEY env var → Groq Cloud (free tier)
+  # No env var → falls back to local llama.cpp server
+  # You can force a provider, but env var always takes priority
+  provider: "llama.cpp"
+  model: "finch-brain"
+  host: "http://127.0.0.1:8080"
+  temperature: 0.65
+  max_tokens: 160
+  context_window: 1024
+  # Cloud deploy (Koyeb): just set GROQ_API_KEY env var, no config changes needed
+  # Model auto-switches to llama-3.1-8b-instant when Groq is detected
+
+memory:
+  provider: "chromadb"
+  path: "./data/memory/"
+  collection: "finch_memory"
+  max_context_items: 15
+
+voice:
+  stt:
+    engine: "whisper"
+    model: "base"  # tiny/base/small/medium/large
+    language: "en"
+    energy_threshold: 300
+    pause_threshold: 1.0
+  tts:
+    engine: "coqui_xtts"  # coqui_xtts / piper / elevenlabs
+    xtts_model: "tts_models/multilingual/multi-dataset/xtts_v2"
+    speaker_wav: "./data/audio/finch_reference.wav"  # reference clip for cloning
+    piper_model: "en_US-lessac-medium"
+  voice_activity_timeout: 30  # seconds before going to listening mode
+
+sales:
+  email:
+    provider: "smtp"
+    smtp_host: "smtp.gmail.com"
+    smtp_port: 587
+    daily_limit: 50
+    min_delay_between: 120  # seconds
+  lead_sources:
+    - "builtwith"
+    - "linkedin_sales_navigator"
+    - "crunchbase"
+    - "shodan"
+  outreach:
+    max_emails_per_day: 30
+    followup_sequence: [2, 5, 10]  # days after initial
+    max_followups: 3
+
+pricing:
+  base_monthly: 299
+  max_monthly: 4999
+  factors:
+    company_size_weight: 0.25
+    asset_count_weight: 0.30
+    industry_risk_weight: 0.20
+    revenue_weight: 0.15
+    breach_history_weight: 0.10
+  negotiation:
+    max_discount: 25  # percent
+    annual_discount: 20  # percent for annual billing
+
+asm:
+  scan_interval: 86400  # daily in seconds
+  tools:
+    subfinder: true
+    httpx: true
+    nuclei: true
+    naabu: true
+  nuclei_templates:
+    - "exposures"
+    - "misconfiguration"
+    - "vulnerabilities"
+
+monitoring:
+  dashboard_port: 8050
+  alert_channels:
+    - "telegram"
+    - "email"
+
+telegram:
+  enabled: true
+  polling_interval: 2

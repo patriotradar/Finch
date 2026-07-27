@@ -1,0 +1,3 @@
+# Optional heavier deps for local / paid hosts with more RAM.
+-r requirements.txt
+chromadb>=0.4.0

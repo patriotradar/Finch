@@ -1,0 +1,18 @@
+[Unit]
+Description=Finch — Autonomous AI Co-Founder
+After=network.target ollama.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/home/user/finch
+Environment="PATH=/home/user/finch/venv/bin:/usr/local/bin:/usr/bin:/bin"
+Environment="PYTHONUNBUFFERED=1"
+ExecStart=/home/user/finch/venv/bin/python /home/user/finch/main.py --daemon
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

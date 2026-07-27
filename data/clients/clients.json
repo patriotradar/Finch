@@ -1,0 +1,27 @@
+{
+  "bigbank": {
+    "id": "bigbank",
+    "company": "BigBank",
+    "contact_email": "sarah@bigbank.com",
+    "price": {
+      "monthly_price": 1970
+    },
+    "source": "web_chat",
+    "stage": "won",
+    "created_at": "2026-07-27T19:48:50.973766",
+    "updated_at": "2026-07-27T19:48:50.973945",
+    "history": [
+      {
+        "stage": "lead",
+        "at": "2026-07-27T19:48:50.973783"
+      },
+      {
+        "stage": "won",
+        "at": "2026-07-27T19:48:50.973948",
+        "note": "demo"
+      }
+    ],
+    "active_since": "2026-07-27T19:48:50.973950",
+    "status": "active"
+  }
+}

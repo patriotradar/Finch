@@ -1,0 +1,32 @@
+Finch Email Setup — 2 Minutes
+===============================
+
+You need a Gmail address. That's it. Here's the fastest way:
+
+Option A: Create a dedicated Gmail for Finch (recommended)
+  1. Go to gmail.com → Create account
+  2. Pick a name like "finch.yourcompany@gmail.com"
+  3. This keeps your personal inbox clean, prospects see a pro address
+
+Option B: Use your existing Gmail
+  Already have one? Use it. No new account needed.
+
+Then — ONE STEP:
+  1. Go to myaccount.google.com/apppasswords
+  2. Select "Mail" → "Other" → name it "Finch"
+  3. Copy the 16-character password Google gives you
+
+Now run these two commands:
+  export FINCH_EMAIL="your-email@gmail.com"
+  export FINCH_EMAIL_PASSWORD="the-16-char-app-password"
+
+Then restart Finch:
+  cd /home/user/finch && python3 web/chat_server.py
+
+That's it. Finch now:
+  - Sends cold outreach emails from your address
+  - Monitors your inbox for replies
+  - Responds autonomously to prospects who reply
+
+NO credit card. NO API keys. NO third-party services.
+Just your Gmail and a 16-character app password.
