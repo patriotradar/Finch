@@ -90,9 +90,28 @@
   .composer input:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(59,130,246,.15)}
   .composer button{
     width:48px;height:48px;border-radius:50%;border:none;background:var(--blue);color:#fff;
-    font-size:18px;cursor:pointer;flex-shrink:0;display:grid;place-items:center;
+    font-size:18px;cursor:pointer;flex-shrink:0;display:grid;place-items:center;padding:0;
   }
   .composer button:disabled{opacity:.4}
+  .composer button.ghost{
+    background:var(--bg3);color:var(--muted);border:1px solid var(--line2);
+  }
+  .composer button.ghost.on{
+    background:rgba(52,211,153,.15);color:var(--green);border-color:rgba(52,211,153,.4);
+  }
+  .composer button.ghost.listening{
+    background:rgba(239,68,68,.18);color:#f87171;border-color:rgba(239,68,68,.45);
+    animation:pulseMic 1.1s ease-in-out infinite;
+  }
+  @keyframes pulseMic{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,.35)}50%{box-shadow:0 0 0 10px rgba(239,68,68,0)}}
+  .composer button svg{width:20px;height:20px;display:block}
+  .toast{
+    position:fixed;left:50%;bottom:88px;transform:translateX(-50%) translateY(12px);
+    background:#1a1a24;border:1px solid var(--line2);color:var(--text);padding:10px 16px;border-radius:12px;
+    font-size:13px;font-weight:600;opacity:0;pointer-events:none;transition:all .25s;z-index:50;
+    max-width:90%;
+  }
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
   footer{text-align:center;font-size:11px;color:var(--dim);padding:0 16px 8px}
 </style>
 </head>
@@ -108,16 +127,23 @@
   </header>
   <div id="msgs"></div>
   <div class="chips" id="chips">
-    <button type="button" data-q="What does Finch actually do?">What do you do?</button>
+    <button type="button" data-q="What does Aegis actually do?">What do you do?</button>
     <button type="button" data-q="Can you look at our domain?">Check our domain</button>
     <button type="button" data-q="How does pricing work?">Pricing</button>
     <button type="button" data-q="I'm not sure I need this.">I'm not sure</button>
   </div>
   <div class="composer">
-    <input id="msg" type="text" placeholder="Message Kane…" autocomplete="off" enterkeyhint="send">
+    <button type="button" id="speakBtn" class="ghost on" title="Kane speaks replies" aria-label="Toggle Kane voice" aria-pressed="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5 6 9H3v6h3l5 4V5z"/><path d="M15.5 8.5a4.5 4.5 0 0 1 0 7"/><path d="M18.5 5.5a8.5 8.5 0 0 1 0 13"/></svg>
+    </button>
+    <button type="button" id="micBtn" class="ghost" title="Tap to talk" aria-label="Voice input">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3z"/><path d="M19 11a7 7 0 0 1-14 0"/><path d="M12 18v3"/></svg>
+    </button>
+    <input id="msg" type="text" placeholder="Message Kane… or tap mic" autocomplete="off" enterkeyhint="send">
     <button type="button" id="send" aria-label="Send">↑</button>
   </div>
   <footer>Aegis · continuous external attack-surface monitoring</footer>
+  <div class="toast" id="toast"></div>
 </div>
 <script>
 (function () {
@@ -126,7 +152,96 @@
   const msgs = document.getElementById('msgs');
   const input = document.getElementById('msg');
   const sendBtn = document.getElementById('send');
+  const micBtn = document.getElementById('micBtn');
+  const speakBtn = document.getElementById('speakBtn');
+  const toastEl = document.getElementById('toast');
   let busy = false;
+  let speakOn = localStorage.getItem('aegis_speak') !== '0';
+  let listening = false, rec = null, finalText = '';
+  function toast(t) {
+    if (!toastEl) return;
+    toastEl.textContent = t; toastEl.classList.add('show');
+    clearTimeout(toastEl._t);
+    toastEl._t = setTimeout(() => toastEl.classList.remove('show'), 2200);
+  }
+  function stopSpeaking() { try { speechSynthesis.cancel(); } catch (e) {} }
+  function speakKane(text) {
+    if (!speakOn || !window.speechSynthesis || !text) return;
+    stopSpeaking();
+    const u = new SpeechSynthesisUtterance(String(text).replace(/\s+/g, ' ').trim());
+    u.rate = 1.02; u.pitch = 0.95; u.lang = 'en-US';
+    const pick = () => {
+      const voices = speechSynthesis.getVoices() || [];
+      const pref = voices.find(v => /en(-|_)?US/i.test(v.lang) && /Daniel|Alex|Fred|Google US English|male/i.test(v.name))
+        || voices.find(v => /en(-|_)US/i.test(v.lang))
+        || voices.find(v => /^en/i.test(v.lang));
+      if (pref) u.voice = pref;
+      speechSynthesis.speak(u);
+    };
+    if ((speechSynthesis.getVoices() || []).length) pick();
+    else speechSynthesis.onvoiceschanged = pick;
+  }
+  function setSpeakUI() {
+    if (!speakBtn) return;
+    speakBtn.classList.toggle('on', speakOn);
+    speakBtn.setAttribute('aria-pressed', speakOn ? 'true' : 'false');
+  }
+  function setMicUI(on) {
+    if (!micBtn) return;
+    micBtn.classList.toggle('listening', !!on);
+  }
+  function voiceSupported() {
+    return !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+  }
+  function getRecognizer() {
+    if (rec) return rec;
+    const Ctor = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!Ctor) return null;
+    const r = new Ctor();
+    r.continuous = false; r.interimResults = true; r.lang = 'en-US'; r.maxAlternatives = 1;
+    r.onstart = () => { listening = true; setMicUI(true); };
+    r.onerror = (ev) => {
+      listening = false; setMicUI(false);
+      const err = (ev && ev.error) || '';
+      if (err === 'not-allowed' || err === 'service-not-allowed') toast('Mic blocked — allow microphone');
+      else if (err === 'no-speech') toast('No speech heard');
+      else if (err && err !== 'aborted') toast('Voice error: ' + err);
+    };
+    r.onend = () => {
+      listening = false; setMicUI(false);
+      const t = (finalText || '').trim(); finalText = '';
+      if (t) { input.value = t; send(); }
+    };
+    r.onresult = (ev) => {
+      let interim = '', fin = '';
+      for (let i = ev.resultIndex; i < ev.results.length; i++) {
+        if (ev.results[i].isFinal) fin += ev.results[i][0].transcript;
+        else interim += ev.results[i][0].transcript;
+      }
+      if (fin) finalText += fin;
+      input.value = (finalText + ' ' + interim).trim();
+    };
+    rec = r; return r;
+  }
+  function startListening() {
+    if (!voiceSupported()) { toast('Voice needs Chrome or Safari'); return; }
+    stopSpeaking();
+    const r = getRecognizer(); if (!r) return;
+    if (listening) { try { r.stop(); } catch (e) {} return; }
+    finalText = '';
+    try { r.start(); }
+    catch (e) { try { r.stop(); } catch (_) {} setTimeout(() => { try { r.start(); } catch (e2) { toast('Could not start mic'); } }, 200); }
+  }
+  setSpeakUI();
+  if (speakBtn) speakBtn.onclick = () => {
+    speakOn = !speakOn; localStorage.setItem('aegis_speak', speakOn ? '1' : '0');
+    if (!speakOn) stopSpeaking(); setSpeakUI();
+    toast(speakOn ? 'Kane will speak replies' : 'Kane voice off');
+  };
+  if (micBtn) {
+    micBtn.onclick = (e) => { e.preventDefault(); startListening(); };
+    if (!voiceSupported()) { micBtn.disabled = true; micBtn.title = 'Speech recognition not available'; }
+  }
   function bubble(who, text, status) {
     if (status) {
       const s = document.createElement('div');
@@ -139,7 +254,9 @@
       const w = document.createElement('div'); w.className = 'who'; w.textContent = 'Kane'; d.appendChild(w);
     }
     d.appendChild(document.createTextNode(text));
-    msgs.appendChild(d); msgs.scrollTop = msgs.scrollHeight; return d;
+    msgs.appendChild(d); msgs.scrollTop = msgs.scrollHeight;
+    if (who !== 'you') speakKane(text);
+    return d;
   }
   function typing() {
     const t = document.createElement('div');
@@ -168,6 +285,7 @@
     const t = (text || input.value || '').trim();
     if (!t || busy) return;
     busy = true; sendBtn.disabled = true; input.value = '';
+    stopSpeaking();
     bubble('you', t);
     const wait = typing();
     try {

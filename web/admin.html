@@ -250,7 +250,7 @@
   .botnav{
     position:absolute;left:0;right:0;bottom:0;height:calc(var(--nav-h) + var(--safe-b));
     padding-bottom:var(--safe-b);background:rgba(8,8,12,.94);backdrop-filter:blur(18px);
-    border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(4,1fr);
+    border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(5,1fr);
     z-index:20;
   }
   .botnav button{
@@ -260,7 +260,7 @@
   .botnav button .ic{display:flex;align-items:center;justify-content:center;height:24px;line-height:1}.botnav button .ic svg{display:block}
   .botnav button.on{color:var(--green)}
   .botnav .nb{
-    position:absolute;top:8px;right:calc(25% + 8px);min-width:16px;height:16px;padding:0 4px;
+    position:absolute;top:4px;right:calc(50% - 18px);min-width:16px;height:16px;padding:0 4px;
     background:var(--red);color:#fff;font-size:10px;font-weight:700;border-radius:8px;
     display:none;align-items:center;justify-content:center;
   }
@@ -310,8 +310,20 @@
   #chatBar.composer input:focus{border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-dim)}
   #chatBar.composer button{
     width:48px;height:48px;border-radius:50%;border:none;background:var(--blue);color:#fff;
-    font-size:18px;cursor:pointer;flex-shrink:0;display:grid;place-items:center;
+    font-size:18px;cursor:pointer;flex-shrink:0;display:grid;place-items:center;padding:0;
   }
+  #chatBar.composer button.ghost{
+    background:var(--bg3);color:var(--muted);border:1px solid var(--line2);font-size:16px;
+  }
+  #chatBar.composer button.ghost.on{
+    background:rgba(52,211,153,.15);color:var(--green);border-color:rgba(52,211,153,.4);
+  }
+  #chatBar.composer button.ghost.listening{
+    background:rgba(239,68,68,.18);color:#f87171;border-color:rgba(239,68,68,.45);
+    animation:pulseMic 1.1s ease-in-out infinite;
+  }
+  @keyframes pulseMic{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,.35)}50%{box-shadow:0 0 0 10px rgba(239,68,68,0)}}
+  #chatBar.composer button svg{width:20px;height:20px;display:block}
   .content{
     flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;
     padding:8px 16px 16px;
@@ -373,7 +385,13 @@
     </div>
 
     <div id="chatBar" class="composer" style="display:none" aria-hidden="true">
-      <input id="chatMsg" type="text" placeholder="Message Kane…" autocomplete="off" enterkeyhint="send" aria-label="Message Kane">
+      <button type="button" id="chatSpeak" class="ghost on" title="Kane speaks replies" aria-label="Toggle Kane voice" aria-pressed="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5 6 9H3v6h3l5 4V5z"/><path d="M15.5 8.5a4.5 4.5 0 0 1 0 7"/><path d="M18.5 5.5a8.5 8.5 0 0 1 0 13"/></svg>
+      </button>
+      <button type="button" id="chatMic" class="ghost" title="Hold or tap to talk" aria-label="Voice input">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3z"/><path d="M19 11a7 7 0 0 1-14 0"/><path d="M12 18v3"/></svg>
+      </button>
+      <input id="chatMsg" type="text" placeholder="Message Kane… or hold mic" autocomplete="off" enterkeyhint="send" aria-label="Message Kane">
       <button type="button" id="chatSend" aria-label="Send">↑</button>
     </div>
   </div>
@@ -923,12 +941,161 @@
         appendBubble('harold', "I'm having trouble reaching the line. Try again in a moment.");
       }
     } else {
-      appendBubble('harold', "Still here.");
+      appendBubble('harold', "Still here.", { speak: false });
     }
     stream.scrollTop = stream.scrollHeight;
   }
 
-  function appendBubble(who, text) {
+  // ---------- Voice (Web Speech API) ----------
+  const voice = {
+    speakOn: localStorage.getItem('aegis_speak') !== '0',
+    listening: false,
+    rec: null,
+    finalText: '',
+  };
+  function voiceSupported() {
+    return !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+  }
+  function ttsSupported() {
+    return !!(window.speechSynthesis && window.SpeechSynthesisUtterance);
+  }
+  function stopSpeaking() {
+    try { if (window.speechSynthesis) speechSynthesis.cancel(); } catch (e) {}
+  }
+  function speakKane(text) {
+    if (!voice.speakOn || !ttsSupported() || !text) return;
+    stopSpeaking();
+    const u = new SpeechSynthesisUtterance(String(text).replace(/\s+/g, ' ').trim());
+    u.rate = 1.02; u.pitch = 0.95; u.lang = 'en-US';
+    const pick = () => {
+      const voices = speechSynthesis.getVoices() || [];
+      const pref = voices.find(v => /en(-|_)?US/i.test(v.lang) && /male|Daniel|Alex|Fred|Google US English/i.test(v.name))
+        || voices.find(v => /en(-|_)US/i.test(v.lang))
+        || voices.find(v => /^en/i.test(v.lang));
+      if (pref) u.voice = pref;
+      speechSynthesis.speak(u);
+    };
+    if ((speechSynthesis.getVoices() || []).length) pick();
+    else speechSynthesis.onvoiceschanged = pick;
+  }
+  function setMicUI(on) {
+    const b = $('chatMic');
+    if (!b) return;
+    b.classList.toggle('listening', !!on);
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+  }
+  function setSpeakUI() {
+    const b = $('chatSpeak');
+    if (!b) return;
+    b.classList.toggle('on', voice.speakOn);
+    b.setAttribute('aria-pressed', voice.speakOn ? 'true' : 'false');
+    b.title = voice.speakOn ? 'Kane speaks replies (on)' : 'Kane speaks replies (off)';
+  }
+  function getRecognizer() {
+    if (voice.rec) return voice.rec;
+    const Ctor = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!Ctor) return null;
+    const r = new Ctor();
+    r.continuous = false;
+    r.interimResults = true;
+    r.lang = 'en-US';
+    r.maxAlternatives = 1;
+    r.onstart = () => { voice.listening = true; setMicUI(true); };
+    r.onerror = (ev) => {
+      voice.listening = false; setMicUI(false);
+      const err = (ev && ev.error) || '';
+      if (err === 'not-allowed' || err === 'service-not-allowed') {
+        toast('Mic blocked — allow microphone for this site');
+      } else if (err === 'no-speech') {
+        toast('No speech heard — try again');
+      } else if (err && err !== 'aborted') {
+        toast('Voice error: ' + err);
+      }
+    };
+    r.onend = () => {
+      voice.listening = false; setMicUI(false);
+      const t = (voice.finalText || '').trim();
+      voice.finalText = '';
+      if (t) {
+        const i = $('chatMsg');
+        if (i) i.value = t;
+        // auto-send after a successful utterance
+        sendChat();
+      }
+    };
+    r.onresult = (ev) => {
+      let interim = '', final = '';
+      for (let i = ev.resultIndex; i < ev.results.length; i++) {
+        const res = ev.results[i];
+        if (res.isFinal) final += res[0].transcript;
+        else interim += res[0].transcript;
+      }
+      if (final) voice.finalText += final;
+      const i = $('chatMsg');
+      if (i) i.value = (voice.finalText + ' ' + interim).trim();
+    };
+    voice.rec = r;
+    return r;
+  }
+  function startListening() {
+    if (!voiceSupported()) {
+      toast('Voice input needs Safari / Chrome on this device');
+      return;
+    }
+    stopSpeaking();
+    const r = getRecognizer();
+    if (!r) return;
+    if (voice.listening) {
+      try { r.stop(); } catch (e) {}
+      return;
+    }
+    voice.finalText = '';
+    try { r.start(); }
+    catch (e) {
+      try { r.stop(); } catch (_) {}
+      setTimeout(() => { try { r.start(); } catch (e2) { toast('Could not start mic'); } }, 200);
+    }
+  }
+  function stopListening() {
+    const r = voice.rec;
+    if (r && voice.listening) {
+      try { r.stop(); } catch (e) {}
+    }
+  }
+  function wireVoiceControls() {
+    setSpeakUI();
+    const mic = $('chatMic');
+    const sp = $('chatSpeak');
+    if (sp) {
+      sp.onclick = () => {
+        voice.speakOn = !voice.speakOn;
+        localStorage.setItem('aegis_speak', voice.speakOn ? '1' : '0');
+        if (!voice.speakOn) stopSpeaking();
+        setSpeakUI();
+        toast(voice.speakOn ? 'Kane will speak replies' : 'Kane voice off');
+      };
+    }
+    if (mic) {
+      // tap toggle works on mobile; press-hold also works on desktop
+      let pressTimer = null;
+      const down = (e) => {
+        e.preventDefault();
+        if (voice.listening) { stopListening(); return; }
+        startListening();
+      };
+      mic.addEventListener('click', down);
+    }
+    if (!voiceSupported()) {
+      if (mic) { mic.disabled = true; mic.title = 'Speech recognition not available in this browser'; }
+    }
+    if (!ttsSupported() && sp) {
+      sp.disabled = true; sp.title = 'Speech synthesis not available';
+    }
+  }
+  wireVoiceControls();
+
+  function appendBubble(who, text, opts) {
+    opts = opts || {};
     const stream = $('chatMsgs');
     if (!stream) return;
     const div = document.createElement('div');
@@ -942,6 +1109,7 @@
     div.appendChild(document.createTextNode(text));
     stream.appendChild(div);
     stream.scrollTop = stream.scrollHeight;
+    if (who !== 'you' && opts.speak !== false) speakKane(text);
     return div;
   }
 
@@ -949,6 +1117,8 @@
     const i = $('chatMsg');
     const t = (i.value || '').trim();
     if (!t) return;
+    stopSpeaking();
+    stopListening();
     i.value = '';
     appendBubble('you', t);
     const stream = $('chatMsgs');
