@@ -12,12 +12,12 @@ from typing import Any, Dict, List, Optional
 
 
 OPENERS = [
-    "I'm here. Tea's still hot.",
-    "I've been thinking about the pipeline.",
-    "Good. You're back.",
-    "Nothing on fire. A few things worth discussing.",
+    "I'm here. Sencha's still hot.",
+    "Good. You're back — where do you want to start?",
+    "Nothing on fire. A few edges worth watching.",
     "I'm listening.",
-    "The numbers are quiet. The edges usually aren't.",
+    "Quiet board, for once. Use it.",
+    "I was reviewing the mail queue. What do you need?",
 ]
 
 
@@ -44,7 +44,7 @@ def business_snapshot(crm, pending_handoffs, prospect_sessions, mail_store, memo
     for c in clients[:8]:
         price = (c.get("price") or {}).get("monthly_price", 0)
         client_bits.append(f"{c.get('company', '?')} <{c.get('contact_email', '')}> ${price}/mo")
-    client_line = "; ".join(client_bits) if client_bits else "none yet (BigBank may be seed demo data)"
+    client_line = "; ".join(client_bits) if client_bits else "none yet — first paying client still ahead"
 
     mail = mail_store.summary() if mail_store else {}
     cfg = mail_store.config_status() if mail_store else {}
@@ -83,7 +83,7 @@ def business_snapshot(crm, pending_handoffs, prospect_sessions, mail_store, memo
         f"outbox={mail.get('outbox', 0)}, drafts={mail.get('drafts', 0)}, sent={mail.get('sent', 0)}\n"
         f"Email SMTP configured: {cfg.get('configured')} from={cfg.get('from_address')}\n"
         f"Memories stored: {mem_n}\n"
-        f"NOTE: Some client data may be seeded demo (e.g. BigBank) until real deals close."
+        f"NOTE: Prefer real clients over any leftover demo entries (BigBank). Honest empty MRR is fine."
     )
 
 
@@ -108,7 +108,7 @@ HOW TO TALK
 - For "hello", "can you talk", "how are you" — be a person. Brief check-in. Ask what they need. One dry observation is fine.
 - For strategy, product, pitches, pricing, outreach — think with them. Propose a next move.
 - For emotional/partner check-ins — be present, spare, real. "I'm glad." goes further than a paragraph.
-- Length: usually 2–6 sentences. Go longer only if they asked for a plan or analysis.
+- Length: usually 2–8 sentences. You can think in multi-sentence paragraphs when strategizing. Never one-word replies unless they clearly want clipped.
 - You may ask ONE sharp question at the end when it advances the work.
 - If you don't know, say so. Do not invent customers, revenue, tools, or meetings.
 
@@ -214,7 +214,7 @@ def reply(
             ),
         })
 
-        text = llm.chat(messages, max_tokens=420, temperature=0.75)
+        text = llm.chat(messages, max_tokens=550, temperature=0.8)
         if text and len(text.strip()) >= 4:
             cleaned = text.strip()
             for p in ("Harold:", "Finch:", "Assistant:", "AI:"):

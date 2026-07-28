@@ -84,21 +84,13 @@ crm = CRM(data_dir=str(_DATA_ROOT / "clients"))
 docs_engine = FinchDocs(docs_dir=str(_DATA_ROOT / "documents"))
 mail_store = MailStore(str(_DATA_ROOT))
 
-# Seed demo CRM on empty cloud disks
+# Do NOT seed fake BigBank clients on cloud — empty pipeline is more honest
+# than a prototype $1,970 MRR. Real clients arrive via won deal/handoff.
 try:
+    Path(crm.data_dir).mkdir(parents=True, exist_ok=True)
     crm._load()
-    if not crm.get_active_clients():
-        seed_clients = Path(__file__).parent.parent / "data" / "clients" / "clients.json"
-        seed_deals = Path(__file__).parent.parent / "data" / "clients" / "deals.json"
-        dest = Path(crm.data_dir)
-        dest.mkdir(parents=True, exist_ok=True)
-        if seed_clients.exists() and not (dest / "clients.json").exists():
-            (dest / "clients.json").write_text(seed_clients.read_text())
-        if seed_deals.exists() and not (dest / "deals.json").exists():
-            (dest / "deals.json").write_text(seed_deals.read_text())
-        crm._load()
 except Exception as e:
-    print(f"[Finch] seed skip: {e}")
+    print(f"[Finch] crm init: {e}")
 
 prospect_sessions = {}
 admin_sessions = {}
@@ -166,7 +158,10 @@ async def icon_512():
 
 @app.get("/", response_class=HTMLResponse)
 async def prospect_chat():
-    return PROSPECT_HTML
+    html_path = Path(__file__).parent / "chat.html"
+    if html_path.exists():
+        return HTMLResponse(html_path.read_text(encoding="utf-8"))
+    return HTMLResponse(PROSPECT_HTML)
 
 
 @app.websocket("/ws/{prospect_id}")
@@ -311,6 +306,15 @@ async def admin_dashboard():
     except Exception:
         brain_ok = False
 
+    def _is_demo_client(c):
+        if c.get("demo") or "demo" in str((c.get("history") or [{}])[-1].get("note", "")).lower():
+            return True
+        name = str(c.get("company") or "").strip().lower()
+        return name in ("bigbank", "demo", "acme demo")
+
+    real_clients = [c for c in clients if not _is_demo_client(c)]
+    real_mrr = sum(int(((c.get("price") or {}).get("monthly_price") or 0)) for c in real_clients)
+
     return JSONResponse({
         "pending_handoffs": handoffs,
         "mail": mail_store.summary(),
@@ -319,8 +323,9 @@ async def admin_dashboard():
         "documents": [{"id": d["id"], "name": d["original_name"], "tags": d.get("tags", [])} for d in docs],
         "active_conversations": len(prospect_sessions),
         "memory_count": memory.count() if memory else 0,
-        "active_clients": len(clients),
-        "mrr": pipeline.get("mrr", 0),
+        "active_clients": len(real_clients),
+        "mrr": real_mrr,
+        "real_mrr": real_mrr,
         "total_deals": pipeline.get("total_deals", 0),
         "brain_online": brain_ok,
         "clients": [
@@ -329,6 +334,7 @@ async def admin_dashboard():
                 "email": c.get("contact_email"),
                 "price": (c.get("price") or {}).get("monthly_price", 0),
                 "status": c.get("status"),
+                "demo": _is_demo_client(c),
             }
             for c in clients
         ],
@@ -354,9 +360,9 @@ async def api_prospect_chat(request: Request):
         _save_session("p", prospect_id, state)
         if start or not message or message.lower() in ("/reset", "/restart"):
             greeting = (
-                "Hello. I'm Harold — I handle the technical side at Finch Security. "
-                "You're here because you're wondering whether your organization has "
-                "security exposure you don't know about. What's on your mind?"
+                "Hello. I'm Harold — technical co-founder at Finch Security. "
+                "We track what of your company is exposed on the open internet before "
+                "someone else does. What's on your mind?"
             )
             if message.lower() in ("/reset", "/restart"):
                 greeting = "Starting fresh. What can I help you with?"

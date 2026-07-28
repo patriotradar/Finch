@@ -125,6 +125,7 @@ class MailStore:
         chat = os.environ.get("FINCH_WEB_CHAT_URL", "https://finch-ocxl.vercel.app")
         for m in samples:
             m["body"] = m["body"].replace("{chat}", chat)
+            m["example"] = True
         self._data["messages"] = samples
         self._data["leads"] = [
             {"company": "Northline", "email": "jordan@northline.io", "stage": "replied"},

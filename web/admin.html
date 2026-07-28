@@ -2,93 +2,360 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="theme-color" content="#0a0a0f">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1">
+<meta name="theme-color" content="#07070b">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Finch">
 <link rel="manifest" href="/manifest.json">
 <title>Finch — Co-Founder</title>
 <style>
-  *{box-sizing:border-box;margin:0;padding:0}
+  :root {
+    --bg: #07070b;
+    --bg2: #0c0c12;
+    --bg3: #12121a;
+    --bg4: #181822;
+    --line: #1f1f2c;
+    --line2: #2a2a3a;
+    --text: #f2f2f7;
+    --muted: #8b8b9a;
+    --dim: #5c5c6e;
+    --green: #34d399;
+    --green-dim: rgba(52,211,153,.12);
+    --blue: #3b82f6;
+    --blue-dim: rgba(59,130,246,.14);
+    --amber: #fbbf24;
+    --amber-dim: rgba(251,191,36,.12);
+    --red: #f87171;
+    --red-dim: rgba(248,113,113,.12);
+    --radius: 16px;
+    --safe-b: env(safe-area-inset-bottom, 0px);
+    --safe-t: env(safe-area-inset-top, 0px);
+    --nav-h: 64px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
   html,body{height:100%;overflow:hidden}
-  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;background:#0a0a0f;color:#e0e0e0}
-  .app{display:flex;flex-direction:column;height:100%;max-width:720px;margin:0 auto;background:#0c0c14}
-  .topbar{padding:14px 16px;padding-top:max(14px,env(safe-area-inset-top));background:#0d0d14;border-bottom:1px solid #1e1e2e;display:flex;justify-content:space-between;align-items:center}
-  .topbar h2{font-size:20px;color:#4ade80;letter-spacing:.5px}
-  .topbar .sub{font-size:11px;color:#666;margin-top:2px}
-  .tabs{display:flex;background:#0d0d14;border-bottom:1px solid #1e1e2e;overflow-x:auto;-webkit-overflow-scrolling:touch}
-  .tabs button{flex:1;min-width:68px;padding:12px 6px;background:none;border:none;color:#666;font-size:12px;font-weight:600;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap}
-  .tabs button.active{color:#4ade80;border-bottom-color:#4ade80}
-  .badge{display:inline-block;background:#ef4444;color:#fff;font-size:10px;padding:1px 6px;border-radius:10px;margin-left:4px;vertical-align:top}
-  .content{flex:1;overflow-y:auto;padding:14px;-webkit-overflow-scrolling:touch}
-  .card{background:#12121a;border:1px solid #1e1e2e;border-radius:12px;padding:14px;margin-bottom:10px}
-  .card h4{font-size:11px;color:#777;margin-bottom:6px;text-transform:uppercase;letter-spacing:.6px}
-  .card .value{font-size:26px;font-weight:700}
-  .value.green{color:#4ade80}.value.blue{color:#60a5fa}.value.amber{color:#f59e0b}.value.red{color:#ef4444}
-  .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-  .handoff{border-left:3px solid #f59e0b;padding-left:12px;margin-bottom:10px}
-  .handoff h5{font-size:14px;margin-bottom:4px}
-  .handoff p{font-size:12px;color:#888}
-  .chat-area{display:flex;flex-direction:column;gap:10px;min-height:100%}
-  .msg{max-width:88%;padding:10px 14px;border-radius:16px;font-size:14px;line-height:1.55;white-space:pre-wrap;word-break:break-word}
-  .msg.you{background:#2563eb;color:#fff;align-self:flex-end;border-bottom-right-radius:4px}
-  .msg.finch{background:#1a1a2e;color:#e8e8f0;align-self:flex-start;border-bottom-left-radius:4px;border:1px solid #2a2a3e}
-  .chat-input{display:flex;gap:8px;padding:10px 14px;background:#0d0d14;border-top:1px solid #1e1e2e;padding-bottom:max(10px,env(safe-area-inset-bottom))}
-  .chat-input input,.compose input,.compose textarea{flex:1;width:100%;padding:12px 14px;background:#1a1a2e;border:1px solid #2a2a3e;border-radius:20px;color:#e0e0e0;font-size:16px;outline:none;font-family:inherit}
-  .chat-input input:focus,.compose input:focus,.compose textarea:focus{border-color:#2563eb}
-  .chat-input button,.btn{background:#2563eb;color:#fff;border:none;border-radius:22px;font-size:14px;font-weight:600;cursor:pointer;padding:10px 16px}
-  .chat-input button{width:44px;height:44px;border-radius:50%;padding:0;font-size:18px;flex-shrink:0}
-  .btn.ghost{background:transparent;border:1px solid #2a2a3e;color:#aaa}
-  .btn.green{background:#166534}
-  .btn.sm{padding:6px 12px;font-size:12px;border-radius:14px}
-  .btn.danger{background:#7f1d1d}
-  .empty{text-align:center;color:#555;padding:36px 16px;font-size:14px;line-height:1.5}
-  .brain-dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:middle}
-  .brain-dot.online{background:#4ade80;box-shadow:0 0 6px #4ade80}
-  .brain-dot.offline{background:#ef4444}
-  .mail-tabs{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap}
-  .mail-tabs button{padding:7px 12px;border-radius:16px;border:1px solid #2a2a3e;background:#12121a;color:#999;font-size:12px;cursor:pointer}
-  .mail-tabs button.active{background:#1e3a2f;color:#4ade80;border-color:#4ade80}
-  .mail-item{cursor:pointer}
-  .mail-item .from{font-size:13px;font-weight:600;color:#e8e8f0}
-  .mail-item .subj{font-size:13px;color:#ccc;margin-top:2px}
-  .mail-item .preview{font-size:12px;color:#666;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .mail-item.unread .from,.mail-item.unread .subj{color:#4ade80}
-  .meta{font-size:11px;color:#555;margin-top:6px}
-  .compose{display:flex;flex-direction:column;gap:8px}
-  .compose textarea{min-height:140px;border-radius:12px;resize:vertical;line-height:1.45}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",system-ui,sans-serif;
+    background:var(--bg);color:var(--text);
+    -webkit-font-smoothing:antialiased;
+  }
+  .shell{
+    height:100%;max-width:480px;margin:0 auto;display:flex;flex-direction:column;
+    background:radial-gradient(1200px 500px at 50% -10%,rgba(52,211,153,.08),transparent 55%),var(--bg2);
+    position:relative;
+  }
+  @media(min-width:900px){
+    body{display:flex;align-items:center;justify-content:center;background:#030306}
+    .shell{
+      max-width:980px;height:min(920px,96vh);border-radius:24px;overflow:hidden;
+      border:1px solid var(--line);box-shadow:0 40px 120px rgba(0,0,0,.55);
+      flex-direction:row;
+    }
+    .main{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0}
+    .side{
+      width:280px;border-right:1px solid var(--line);background:rgba(0,0,0,.25);
+      display:flex;flex-direction:column;padding:24px 16px;gap:8px;
+    }
+    .side .brand{padding:8px 12px 24px}
+    .side .nav-btn{
+      display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:12px;
+      border:none;background:transparent;color:var(--muted);font-size:14px;font-weight:600;
+      cursor:pointer;text-align:left;width:100%;
+    }
+    .side .nav-btn.active{background:var(--green-dim);color:var(--green)}
+    .side .nav-btn .ic{font-size:18px;width:24px;text-align:center}
+    .botnav{display:none!important}
+    .content{padding-bottom:24px!important}
+  }
+  @media(max-width:899px){.side{display:none!important}}
+
+  .top{
+    padding:12px 18px;padding-top:max(12px,var(--safe-t));
+    display:flex;align-items:center;justify-content:space-between;gap:12px;
+    border-bottom:1px solid transparent;backdrop-filter:blur(12px);
+    background:linear-gradient(180deg,rgba(7,7,11,.92),rgba(7,7,11,.55));
+    z-index:5;
+  }
+  .brand-row{display:flex;align-items:center;gap:12px;min-width:0}
+  .logo{
+    width:38px;height:38px;border-radius:12px;
+    background:linear-gradient(145deg,#065f46,#34d399);
+    display:grid;place-items:center;font-weight:800;color:#04120c;font-size:16px;
+    box-shadow:0 0 24px rgba(52,211,153,.25);flex-shrink:0;
+  }
+  .brand-row h1{font-size:17px;font-weight:700;letter-spacing:-.02em;line-height:1.1}
+  .brand-row p{font-size:12px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .pill-status{
+    display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:600;
+    padding:6px 10px;border-radius:999px;background:var(--bg3);border:1px solid var(--line);color:var(--muted);
+  }
+  .pill-status.on{color:var(--green);background:var(--green-dim);border-color:rgba(52,211,153,.25)}
+  .pill-status .d{width:7px;height:7px;border-radius:50%;background:currentColor;box-shadow:0 0 8px currentColor}
+
+  .content{
+    flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;
+    padding:8px 16px 24px;padding-bottom:calc(var(--nav-h) + var(--safe-b) + 16px);
+  }
+  .content.chat-mode{padding:0;padding-bottom:0;display:flex;flex-direction:column;min-height:0}
+
+  .greet{padding:8px 2px 18px}
+  .greet .hi{font-size:26px;font-weight:720;letter-spacing:-.03em;line-height:1.15}
+  .greet .sub{color:var(--muted);font-size:14px;margin-top:6px;line-height:1.45}
+
+  .stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+  .stat{
+    background:var(--bg3);border:1px solid var(--line);border-radius:var(--radius);
+    padding:14px 14px 12px;position:relative;overflow:hidden;
+  }
+  .stat::after{
+    content:"";position:absolute;inset:auto -20% -40% auto;width:90px;height:90px;border-radius:50%;
+    background:radial-gradient(circle,rgba(255,255,255,.04),transparent 70%);pointer-events:none;
+  }
+  .stat .k{font-size:11px;font-weight:650;color:var(--dim);text-transform:uppercase;letter-spacing:.06em}
+  .stat .v{font-size:24px;font-weight:720;letter-spacing:-.03em;margin-top:6px}
+  .stat .h{font-size:11px;color:var(--muted);margin-top:4px}
+  .v.g{color:var(--green)}.v.b{color:#60a5fa}.v.a{color:var(--amber)}.v.r{color:var(--red)}
+
+  .card{
+    background:var(--bg3);border:1px solid var(--line);border-radius:var(--radius);
+    padding:14px;margin-bottom:10px;
+  }
+  .card.tap{cursor:pointer;transition:border-color .15s,transform .12s}
+  .card.tap:active{transform:scale(.99)}
+  .card.tap:hover{border-color:var(--line2)}
+  .sec-head{
+    display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:8px;
+  }
+  .sec-head h3{font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.07em}
+  .sec-head a, .link-btn{
+    border:none;background:none;color:var(--green);font-size:12px;font-weight:650;cursor:pointer;
+  }
+
+  .action{display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-top:1px solid var(--line)}
+  .action:first-of-type{border-top:none;padding-top:2px}
+  .action .dot{
+    width:36px;height:36px;border-radius:11px;display:grid;place-items:center;flex-shrink:0;font-size:15px;
+    background:var(--bg4);border:1px solid var(--line);
+  }
+  .action .dot.mail{background:var(--amber-dim);border-color:rgba(251,191,36,.2)}
+  .action .dot.live{background:var(--blue-dim);border-color:rgba(59,130,246,.25)}
+  .action .dot.hand{background:var(--green-dim);border-color:rgba(52,211,153,.25)}
+  .action .t{font-size:14px;font-weight:600;line-height:1.3}
+  .action .s{font-size:12px;color:var(--muted);margin-top:3px;line-height:1.4}
+  .action .go{margin-left:auto;color:var(--dim);font-size:18px;align-self:center}
+
+  .empty{
+    text-align:center;padding:40px 20px;color:var(--muted);font-size:14px;line-height:1.55;
+  }
+  .empty .big{font-size:36px;margin-bottom:12px}
+  .empty h4{color:var(--text);font-size:16px;margin-bottom:6px}
+
   .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-  .pill{display:inline-block;font-size:10px;padding:2px 8px;border-radius:10px;background:#1e1e2e;color:#888;margin-left:6px}
-  .pill.queued{color:#f59e0b}.pill.sent{color:#4ade80}.pill.draft{color:#60a5fa}.pill.failed{color:#ef4444}.pill.unread{color:#f87171}.pill.read{color:#888}
-  .typing{color:#666;font-size:12px;font-style:italic;align-self:flex-start;padding:0 8px}
+  .btn{
+    appearance:none;border:none;border-radius:12px;padding:11px 16px;font-size:13px;font-weight:650;
+    cursor:pointer;background:var(--blue);color:#fff;display:inline-flex;align-items:center;justify-content:center;gap:6px;
+    transition:opacity .15s,transform .1s;
+  }
+  .btn:active{transform:scale(.98)}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+  .btn.sm{padding:8px 12px;font-size:12px;border-radius:10px}
+  .btn.block{width:100%}
+  .btn.ghost{background:transparent;border:1px solid var(--line2);color:var(--text)}
+  .btn.green{background:#059669}
+  .btn.danger{background:#7f1d1d}
+  .btn.amber{background:#b45309}
+
+  .chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;margin-bottom:12px;-webkit-overflow-scrolling:touch}
+  .chip{
+    flex-shrink:0;padding:8px 14px;border-radius:999px;border:1px solid var(--line2);
+    background:var(--bg3);color:var(--muted);font-size:12px;font-weight:650;cursor:pointer;
+  }
+  .chip.on{background:var(--green-dim);color:var(--green);border-color:rgba(52,211,153,.35)}
+
+  .mail-row{display:flex;gap:12px;align-items:flex-start}
+  .av{
+    width:40px;height:40px;border-radius:12px;background:var(--bg4);border:1px solid var(--line);
+    display:grid;place-items:center;font-size:13px;font-weight:700;color:var(--green);flex-shrink:0;
+  }
+  .mail-row .from{font-size:14px;font-weight:650}
+  .mail-row .subj{font-size:13px;color:#d4d4de;margin-top:2px}
+  .mail-row .prev{font-size:12px;color:var(--dim);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .mail-row.unread .from,.mail-row.unread .subj{color:var(--green)}
+  .tag{
+    display:inline-block;font-size:10px;font-weight:700;padding:2px 7px;border-radius:999px;
+    background:var(--bg4);color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-left:6px;
+  }
+  .tag.unread{background:var(--red-dim);color:var(--red)}
+  .tag.draft{background:var(--blue-dim);color:#60a5fa}
+  .tag.queued{background:var(--amber-dim);color:var(--amber)}
+  .tag.sent{background:var(--green-dim);color:var(--green)}
+  .tag.ex{background:rgba(255,255,255,.06);color:var(--dim)}
+  .meta{font-size:11px;color:var(--dim);margin-top:6px}
+
+  .field{width:100%;margin-bottom:8px}
+  .field label{display:block;font-size:11px;font-weight:650;color:var(--dim);margin-bottom:5px;text-transform:uppercase;letter-spacing:.05em}
+  input,textarea{
+    width:100%;padding:12px 14px;border-radius:12px;border:1px solid var(--line2);
+    background:var(--bg);color:var(--text);font-size:16px;font-family:inherit;outline:none;
+  }
+  input:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-dim)}
+  textarea{min-height:140px;resize:vertical;line-height:1.5}
+
+  /* Chat */
+  .chat-wrap{flex:1;display:flex;flex-direction:column;min-height:0;height:100%}
+  .chat-stream{
+    flex:1;overflow-y:auto;padding:16px 16px 12px;display:flex;flex-direction:column;gap:10px;
+    -webkit-overflow-scrolling:touch;
+  }
+  .bubble{
+    max-width:88%;padding:11px 14px;border-radius:18px;font-size:15px;line-height:1.5;
+    white-space:pre-wrap;word-break:break-word;
+  }
+  .bubble.you{
+    align-self:flex-end;background:var(--blue);color:#fff;
+    border-bottom-right-radius:5px;
+  }
+  .bubble.harold{
+    align-self:flex-start;background:var(--bg3);border:1px solid var(--line);
+    color:var(--text);border-bottom-left-radius:5px;
+  }
+  .bubble .who{font-size:10px;font-weight:700;color:var(--green);margin-bottom:4px;letter-spacing:.04em;text-transform:uppercase}
+  .typing{
+    align-self:flex-start;display:inline-flex;gap:5px;padding:12px 16px;background:var(--bg3);
+    border:1px solid var(--line);border-radius:16px;
+  }
+  .typing i{width:6px;height:6px;border-radius:50%;background:var(--muted);animation:b 1.2s infinite}
+  .typing i:nth-child(2){animation-delay:.15s}.typing i:nth-child(3){animation-delay:.3s}
+  @keyframes b{0%,80%,100%{opacity:.25;transform:translateY(0)}40%{opacity:1;transform:translateY(-3px)}}
+
+  .composer{
+    display:flex;gap:8px;padding:10px 14px;padding-bottom:max(10px,var(--safe-b));
+    border-top:1px solid var(--line);background:rgba(7,7,11,.92);backdrop-filter:blur(16px);
+  }
+  .composer input{
+    flex:1;border-radius:22px;padding:12px 16px;background:var(--bg3);border:1px solid var(--line2);font-size:16px;
+  }
+  .composer button{
+    width:46px;height:46px;border-radius:50%;border:none;background:var(--blue);color:#fff;
+    font-size:18px;cursor:pointer;flex-shrink:0;display:grid;place-items:center;
+  }
+  .composer button:disabled{opacity:.4}
+  .suggest{display:flex;gap:8px;overflow-x:auto;padding:0 16px 10px}
+  .suggest button{
+    flex-shrink:0;border:1px solid var(--line2);background:var(--bg3);color:var(--muted);
+    border-radius:999px;padding:8px 12px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;
+  }
+
+  .botnav{
+    position:absolute;left:0;right:0;bottom:0;height:calc(var(--nav-h) + var(--safe-b));
+    padding-bottom:var(--safe-b);background:rgba(8,8,12,.94);backdrop-filter:blur(18px);
+    border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(4,1fr);
+    z-index:20;
+  }
+  .botnav button{
+    border:none;background:none;color:var(--dim);font-size:10px;font-weight:650;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;
+  }
+  .botnav button .ic{font-size:20px;line-height:1}
+  .botnav button.on{color:var(--green)}
+  .botnav .nb{
+    position:absolute;top:8px;right:calc(25% + 8px);min-width:16px;height:16px;padding:0 4px;
+    background:var(--red);color:#fff;font-size:10px;font-weight:700;border-radius:8px;
+    display:none;align-items:center;justify-content:center;
+  }
+
+  .toast{
+    position:fixed;left:50%;bottom:calc(var(--nav-h) + var(--safe-b) + 18px);transform:translateX(-50%) translateY(20px);
+    background:#1a1a24;border:1px solid var(--line2);color:var(--text);padding:10px 16px;border-radius:12px;
+    font-size:13px;font-weight:600;opacity:0;pointer-events:none;transition:all .25s;z-index:50;
+    max-width:90%;box-shadow:0 12px 40px rgba(0,0,0,.45);
+  }
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  .person{display:flex;gap:12px;align-items:center;padding:4px 0}
+  .person .name{font-size:14px;font-weight:650}
+  .person .sub{font-size:12px;color:var(--muted);margin-top:2px}
+  .price{margin-left:auto;font-weight:700;color:var(--green);font-size:14px}
+
+  .skeleton{height:84px;border-radius:var(--radius);background:linear-gradient(90deg,var(--bg3),var(--bg4),var(--bg3));background-size:200% 100%;animation:sh 1.2s infinite}
+  @keyframes sh{0%{background-position:200% 0}100%{background-position:-200% 0}}
+
+  .note{
+    font-size:12px;color:var(--muted);line-height:1.45;padding:10px 12px;border-radius:12px;
+    background:rgba(255,255,255,.03);border:1px dashed var(--line2);margin-bottom:12px;
+  }
 </style>
 </head>
 <body>
-<div class="app">
-  <div class="topbar">
-    <div>
-      <h2>Finch</h2>
-      <div class="sub">Your co-founder · always on</div>
+<div class="shell">
+  <aside class="side">
+    <div class="brand">
+      <div class="brand-row">
+        <div class="logo">F</div>
+        <div>
+          <h1>Finch</h1>
+          <p>Co-founder HQ</p>
+        </div>
+      </div>
     </div>
-    <div id="brainStatus"><span class="brain-dot offline"></span><span style="font-size:12px;color:#666">Brain</span></div>
+    <button class="nav-btn active" data-tab="home" type="button"><span class="ic">⌂</span> Home</button>
+    <button class="nav-btn" data-tab="mail" type="button"><span class="ic">✉</span> Mail</button>
+    <button class="nav-btn" data-tab="chat" type="button"><span class="ic">✦</span> Harold</button>
+    <button class="nav-btn" data-tab="more" type="button"><span class="ic">☰</span> Business</button>
+    <div style="flex:1"></div>
+    <div class="note" id="sideNote" style="margin:8px">Loading…</div>
+  </aside>
+
+  <div class="main" style="flex:1;display:flex;flex-direction:column;min-height:0;min-width:0">
+    <header class="top">
+      <div class="brand-row">
+        <div class="logo">F</div>
+        <div>
+          <h1 id="topTitle">Finch</h1>
+          <p id="topSub">Your co-founder · always on</p>
+        </div>
+      </div>
+      <div class="pill-status" id="brainPill"><span class="d"></span><span>…</span></div>
+    </header>
+
+    <div id="content" class="content">
+      <div class="skeleton"></div>
+      <div class="skeleton" style="margin-top:10px;height:160px"></div>
+    </div>
+
+    <div id="chatBar" class="composer" style="display:none">
+      <input id="chatMsg" type="text" placeholder="Message Harold…" autocomplete="off" enterkeyhint="send">
+      <button type="button" id="chatSend" aria-label="Send">↑</button>
+    </div>
   </div>
-  <div class="tabs">
-    <button type="button" onclick="switchTab('status')" id="tab-status" class="active">Status</button>
-    <button type="button" onclick="switchTab('emails')" id="tab-emails">Emails<span id="mailBadge" class="badge" style="display:none">0</span></button>
-    <button type="button" onclick="switchTab('handoffs')" id="tab-handoffs">Handoffs</button>
-    <button type="button" onclick="switchTab('docs')" id="tab-docs">Docs</button>
-    <button type="button" onclick="switchTab('chat')" id="tab-chat">Chat</button>
-  </div>
-  <div id="content" class="content"></div>
-  <div id="chatInput" class="chat-input" style="display:none">
-    <input type="text" id="chatMsg" placeholder="Talk to Harold..." onkeypress="if(event.key==='Enter')sendChat()" autocomplete="off">
-    <button type="button" onclick="sendChat()" aria-label="Send">&#9654;</button>
-  </div>
+
+  <nav class="botnav" id="botnav">
+    <button type="button" data-tab="home" class="on"><span class="ic">⌂</span>Home</button>
+    <button type="button" data-tab="mail" style="position:relative">
+      <span class="ic">✉</span>Mail
+      <span class="nb" id="mailBadge">0</span>
+    </button>
+    <button type="button" data-tab="chat"><span class="ic">✦</span>Harold</button>
+    <button type="button" data-tab="more"><span class="ic">☰</span>More</button>
+  </nav>
 </div>
+<div class="toast" id="toast"></div>
+
 <script>
-  let currentTab = 'status';
-  let mailFolder = 'inbox';
-  let chatBootstrapped = false;
+(function () {
+  const state = {
+    tab: 'home',
+    mailFolder: 'inbox',
+    dash: null,
+    chatReady: false,
+    adminId: localStorage.getItem('finch_admin_id') || ('a-' + Math.random().toString(36).slice(2, 10)),
+  };
+  localStorage.setItem('finch_admin_id', state.adminId);
+
+  const $ = (id) => document.getElementById(id);
+  const content = $('content');
+  const chatBar = $('chatBar');
 
   function esc(s) {
     return String(s == null ? '' : s)
@@ -99,297 +366,476 @@
       .replace(/'/g, '&#39;');
   }
 
-  function switchTab(t) {
-    currentTab = t;
-    document.querySelectorAll('.tabs button').forEach(b => b.classList.remove('active'));
-    document.getElementById('tab-' + t).classList.add('active');
-    document.getElementById('chatInput').style.display = t === 'chat' ? 'flex' : 'none';
-    renderTab(t);
+  function toast(msg) {
+    const t = $('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(toast._t);
+    toast._t = setTimeout(() => t.classList.remove('show'), 2600);
+  }
+
+  function setBrain(online) {
+    const p = $('brainPill');
+    p.className = 'pill-status' + (online ? ' on' : '');
+    p.innerHTML = '<span class="d"></span><span>' + (online ? 'Harold online' : 'Brain offline') + '</span>';
+  }
+
+  function setBadge(n) {
+    const b = $('mailBadge');
+    if (!b) return;
+    if (n > 0) { b.style.display = 'flex'; b.textContent = n > 9 ? '9+' : String(n); }
+    else b.style.display = 'none';
+  }
+
+  function greetLine() {
+    const h = new Date().getHours();
+    if (h < 5) return 'Late night.';
+    if (h < 12) return 'Good morning.';
+    if (h < 17) return 'Good afternoon.';
+    if (h < 21) return 'Good evening.';
+    return 'Working late.';
   }
 
   async function api(url, opts) {
     const r = await fetch(url, opts);
+    if (!r.ok) throw new Error('http ' + r.status);
     return r.json();
   }
 
-  function setBrain(online) {
-    const bd = document.getElementById('brainStatus');
-    if (!bd) return;
-    bd.innerHTML = online
-      ? '<span class="brain-dot online"></span><span style="font-size:12px;color:#4ade80">Online</span>'
-      : '<span class="brain-dot offline"></span><span style="font-size:12px;color:#ef4444">Offline</span>';
+  function switchTab(tab) {
+    state.tab = tab;
+    document.querySelectorAll('.botnav button, .side .nav-btn').forEach(b => {
+      b.classList.toggle('on', b.getAttribute('data-tab') === tab);
+      b.classList.toggle('active', b.getAttribute('data-tab') === tab);
+    });
+    const titles = {
+      home: ['Home', 'What needs you'],
+      mail: ['Mail', 'Inbox · drafts · outbox'],
+      chat: ['Harold', 'Your technical co-founder'],
+      more: ['Business', 'Handoffs · clients · docs'],
+    };
+    $('topTitle').textContent = titles[tab][0];
+    $('topSub').textContent = titles[tab][1];
+    const chatMode = tab === 'chat';
+    content.classList.toggle('chat-mode', chatMode);
+    chatBar.style.display = chatMode ? 'flex' : 'none';
+    render();
   }
 
-  function setMailBadge(n) {
-    const b = document.getElementById('mailBadge');
-    if (!b) return;
-    if (n > 0) { b.style.display = 'inline-block'; b.textContent = n; }
-    else b.style.display = 'none';
-  }
+  document.querySelectorAll('[data-tab]').forEach(btn => {
+    btn.addEventListener('click', () => switchTab(btn.getAttribute('data-tab')));
+  });
 
-  async function renderTab(t) {
-    const c = document.getElementById('content');
-    if (t === 'status') {
-      try {
-        const d = await api('/api/admin/dashboard');
-        setBrain(!!d.brain_online);
-        const mail = d.mail || {};
-        setMailBadge(mail.unread || 0);
-        c.innerHTML =
-          '<div class="grid">' +
-          '<div class="card"><h4>Brain</h4><div class="value ' + (d.brain_online ? 'green' : 'red') + '">' + (d.brain_online ? 'Online' : 'Offline') + '</div></div>' +
-          '<div class="card"><h4>Live chats</h4><div class="value blue">' + (d.active_conversations || 0) + '</div></div>' +
-          '<div class="card"><h4>Handoffs</h4><div class="value amber">' + ((d.pending_handoffs || []).length) + '</div></div>' +
-          '<div class="card"><h4>MRR</h4><div class="value green">$' + Number(d.mrr || 0).toLocaleString() + '</div></div>' +
-          '</div>' +
-          '<div class="card"><h4>Mail</h4><div style="font-size:13px;line-height:1.6">' +
-          'Inbox <b>' + (mail.inbox || 0) + '</b> · Unread <b style="color:#f87171">' + (mail.unread || 0) + '</b><br>' +
-          'Drafts <b>' + (mail.drafts || 0) + '</b> · Outbox <b>' + (mail.outbox || 0) + '</b> · Sent <b>' + (mail.sent || 0) + '</b>' +
-          '<div class="meta">' + esc((d.mail_config || {}).note || '') + '</div></div></div>' +
-          '<div class="card"><h4>Clients · ' + (d.active_clients || 0) + '</h4>' + (
-            (d.clients || []).length
-              ? d.clients.map(function (cl) {
-                  return '<p style="margin:6px 0;font-size:13px">' + esc(cl.company) + ' — ' + esc(cl.email) + ' — $' + Number(cl.price || 0).toLocaleString() + '/mo</p>';
-                }).join('')
-              : '<p style="color:#666;font-size:13px">No active clients yet.</p>'
-          ) + '</div>' +
-          '<div class="card"><h4>Memories</h4><div class="value">' + (d.memory_count || 0) + '</div></div>';
-      } catch (e) {
-        c.innerHTML = '<div class="empty">Could not load dashboard.</div>';
-      }
-    } else if (t === 'emails') {
-      await renderEmails(null);
-    } else if (t === 'handoffs') {
-      try {
-        const d = await api('/api/admin/dashboard');
-        if (!(d.pending_handoffs || []).length) {
-          c.innerHTML = '<div class="empty">No pending handoffs.<br>When a prospect says yes on the public chat, they appear here.</div>';
-          return;
-        }
-        c.innerHTML = d.pending_handoffs.map(function (p) {
-          return '<div class="card handoff"><h5>' + esc(p.company) + '</h5><p>' + esc(p.email) + ' · $' + Number(p.price || 0).toLocaleString() + '/mo</p></div>';
-        }).join('');
-      } catch (e) {
-        c.innerHTML = '<div class="empty">Error loading handoffs.</div>';
-      }
-    } else if (t === 'docs') {
-      try {
-        const d = await api('/api/admin/dashboard');
-        if (!(d.documents || []).length) {
-          c.innerHTML = '<div class="empty">No documents yet.<br>Contracts and one-pagers land here.</div>';
-          return;
-        }
-        c.innerHTML = d.documents.map(function (doc) {
-          return '<div class="card"><h4>#' + esc(doc.id) + ' · ' + esc(doc.name) + '</h4><p style="font-size:12px;color:#888">Tags: ' + esc((doc.tags || []).join(', ') || 'none') + '</p></div>';
-        }).join('');
-      } catch (e) {
-        c.innerHTML = '<div class="empty">Error loading documents.</div>';
-      }
-    } else if (t === 'chat') {
-      c.innerHTML = '<div class="chat-area" id="chatMsgs"></div>';
-      connectChat();
+  async function loadDash() {
+    state.dash = await api('/api/admin/dashboard');
+    setBrain(!!state.dash.brain_online);
+    setBadge((state.dash.mail || {}).unread || 0);
+    const sn = $('sideNote');
+    if (sn) {
+      const m = state.dash.mail || {};
+      sn.textContent = (state.dash.brain_online ? 'Brain online · ' : 'Brain offline · ') +
+        (m.unread || 0) + ' unread · $' + Number(state.dash.mrr || 0).toLocaleString() + ' MRR';
     }
+    return state.dash;
   }
 
-  async function renderEmails(openId) {
-    const c = document.getElementById('content');
+  async function render() {
     try {
-      const d = await api('/api/admin/emails?folder=' + encodeURIComponent(mailFolder));
-      const s = d.summary || {};
-      const cfg = d.config || {};
-      setMailBadge(s.unread || 0);
-
-      if (openId) {
-        const full = await api('/api/admin/emails/' + encodeURIComponent(openId));
-        const m = full.message;
-        if (!m) { mailFolder = 'inbox'; return renderEmails(null); }
-        var actions = '';
-        if (m.folder === 'drafts' || m.folder === 'outbox') {
-          actions += '<button type="button" class="btn green sm" data-send="' + esc(m.id) + '">Send / Queue</button>';
-        }
-        actions += '<button type="button" class="btn danger sm" data-del="' + esc(m.id) + '">Delete</button>';
-        c.innerHTML =
-          '<div class="row" style="margin-bottom:10px"><button type="button" class="btn ghost sm" id="mailBack">← Back</button></div>' +
-          '<div class="card">' +
-          '<div style="font-size:14px;font-weight:600">' + esc(m.from) + ' → ' + esc(m.to) + '</div>' +
-          '<div style="font-size:16px;margin:8px 0;font-weight:600">' + esc(m.subject) + '</div>' +
-          '<span class="pill ' + esc(m.status || '') + '">' + esc(m.status || m.folder) + '</span>' +
-          (m.company ? '<span class="pill">' + esc(m.company) + '</span>' : '') +
-          '<pre style="white-space:pre-wrap;font-family:inherit;font-size:14px;line-height:1.55;margin-top:14px;color:#ddd">' + esc(m.body) + '</pre>' +
-          '<div class="meta">' + esc(m.created_at || '') + '</div>' +
-          '<div class="row" style="margin-top:14px">' + actions + '</div></div>';
-        document.getElementById('mailBack').onclick = function () { renderEmails(null); };
-        c.querySelectorAll('[data-send]').forEach(function (btn) {
-          btn.onclick = function () { sendMail(btn.getAttribute('data-send')); };
-        });
-        c.querySelectorAll('[data-del]').forEach(function (btn) {
-          btn.onclick = function () { delMail(btn.getAttribute('data-del')); };
-        });
-        return;
-      }
-
-      var folders = ['inbox', 'drafts', 'outbox', 'sent', 'all'];
-      var html = '<div class="card" style="padding:10px 14px"><div style="font-size:12px;color:#888;line-height:1.5">' + esc(cfg.note || '') +
-        (cfg.from_address ? '<br>From: <b style="color:#aaa">' + esc(cfg.from_address) + '</b>' : '') + '</div></div>';
-      html += '<div class="mail-tabs">';
-      folders.forEach(function (f) {
-        var label = f.charAt(0).toUpperCase() + f.slice(1);
-        if (f === 'inbox' && s.unread) label += ' · ' + s.unread;
-        html += '<button type="button" class="' + (mailFolder === f ? 'active' : '') + '" data-folder="' + f + '">' + label + '</button>';
-      });
-      html += '</div>';
-      html += '<div class="card compose"><h4>Compose outreach</h4>' +
-        '<input id="cCompany" placeholder="Company (e.g. Acme Corp)">' +
-        '<input id="cTo" placeholder="To email" inputmode="email">' +
-        '<input id="cFinding" placeholder="Optional finding / hook">' +
-        '<div class="row">' +
-        '<button type="button" class="btn sm" id="btnCraft">Draft with Harold</button>' +
-        '<button type="button" class="btn ghost sm" id="btnManual">Manual</button></div>' +
-        '<div id="manualBox" style="display:none;flex-direction:column;gap:8px;margin-top:8px">' +
-        '<input id="cSubj" placeholder="Subject">' +
-        '<textarea id="cBody" placeholder="Body"></textarea>' +
-        '<button type="button" class="btn green sm" id="btnSaveDraft">Save draft</button></div></div>';
-
-      var msgs = d.messages || [];
-      if (!msgs.length) {
-        html += '<div class="empty">No messages in ' + esc(mailFolder) + '.</div>';
-      } else {
-        msgs.forEach(function (m) {
-          var unread = m.status === 'unread' ? ' unread' : '';
-          var who = m.folder === 'inbox' ? m.from : m.to;
-          html += '<div class="card mail-item' + unread + '" data-open="' + esc(m.id) + '">' +
-            '<div class="from">' + esc(who) +
-            '<span class="pill ' + esc(m.status || m.folder) + '">' + esc(m.status || m.folder) + '</span></div>' +
-            '<div class="subj">' + esc(m.subject) + '</div>' +
-            '<div class="preview">' + esc(String(m.body || '').replace(/\s+/g, ' ').slice(0, 100)) + '</div>' +
-            '<div class="meta">' + esc((m.company || '') + (m.created_at ? ' · ' + String(m.created_at).slice(0, 16) : '')) + '</div></div>';
-        });
-      }
-      c.innerHTML = html;
-
-      c.querySelectorAll('[data-folder]').forEach(function (btn) {
-        btn.onclick = function () { mailFolder = btn.getAttribute('data-folder'); renderEmails(null); };
-      });
-      c.querySelectorAll('[data-open]').forEach(function (el) {
-        el.onclick = function () { renderEmails(el.getAttribute('data-open')); };
-      });
-      var bc = document.getElementById('btnCraft');
-      if (bc) bc.onclick = craftMail;
-      var bm = document.getElementById('btnManual');
-      if (bm) bm.onclick = function () {
-        var box = document.getElementById('manualBox');
-        if (box) box.style.display = box.style.display === 'none' ? 'flex' : 'none';
-      };
-      var bs = document.getElementById('btnSaveDraft');
-      if (bs) bs.onclick = saveManualDraft;
+      if (state.tab === 'home') await renderHome();
+      else if (state.tab === 'mail') await renderMail(null);
+      else if (state.tab === 'chat') await renderChat();
+      else await renderMore();
     } catch (e) {
       console.error(e);
-      c.innerHTML = '<div class="empty">Could not load mail.</div>';
+      content.innerHTML = '<div class="empty"><div class="big">⚠</div><h4>Could not load</h4>Check your connection and try again.</div>';
     }
+  }
+
+  function isExample(m) {
+    return String(m.id || '').startsWith('seed-') || m.example === true;
+  }
+
+  async function renderHome() {
+    content.innerHTML = '<div class="skeleton"></div><div class="skeleton" style="margin-top:10px;height:200px"></div>';
+    const d = await loadDash();
+    const mail = d.mail || {};
+    const handoffs = d.pending_handoffs || [];
+    const recent = d.recent_mail || [];
+    const unread = recent.filter(m => m.status === 'unread');
+    const clients = d.clients || [];
+    const realClients = clients.filter(c => !(c.demo || String(c.company || '').toLowerCase() === 'bigbank'));
+    const mrr = d.real_mrr != null ? d.real_mrr : (realClients.length ? d.mrr : 0);
+
+    let actions = '';
+    unread.slice(0, 3).forEach(m => {
+      actions += '<div class="action tap" data-go="mail" data-open="' + esc(m.id) + '">' +
+        '<div class="dot mail">✉</div><div><div class="t">' + esc(m.from) + '</div>' +
+        '<div class="s">' + esc(m.subject) + '</div></div><div class="go">›</div></div>';
+    });
+    handoffs.slice(0, 3).forEach(h => {
+      actions += '<div class="action tap" data-go="more">' +
+        '<div class="dot hand">✓</div><div><div class="t">Handoff · ' + esc(h.company || 'Prospect') + '</div>' +
+        '<div class="s">' + esc(h.email) + ' · $' + Number(h.price || 0).toLocaleString() + '/mo ready</div></div><div class="go">›</div></div>';
+    });
+    if ((d.active_conversations || 0) > 0) {
+      actions += '<div class="action"><div class="dot live">●</div><div><div class="t">' +
+        d.active_conversations + ' live prospect chat' + (d.active_conversations > 1 ? 's' : '') +
+        '</div><div class="s">Harold is talking on the public page right now.</div></div></div>';
+    }
+    if (!actions) {
+      actions = '<div class="empty" style="padding:20px 8px">' +
+        '<h4 style="font-size:15px;margin-bottom:6px">Clear board</h4>' +
+        'No urgent handoffs. Open Mail to work outreach, or talk to Harold.</div>';
+    }
+
+    const nextSteps =
+      '<div class="card" style="margin-top:4px">' +
+      '<div class="sec-head"><h3>Work with Harold</h3></div>' +
+      '<div class="row">' +
+      '<button type="button" class="btn sm" data-go="chat">Talk to Harold</button>' +
+      '<button type="button" class="btn ghost sm" data-go="mail">Compose outreach</button>' +
+      '<a class="btn ghost sm" href="/" target="_blank" rel="noopener">Open public chat</a>' +
+      '</div></div>';
+
+    content.innerHTML =
+      '<div class="greet"><div class="hi">' + greetLine() + '</div>' +
+      '<div class="sub">Harold is ' + (d.brain_online ? 'online and working with you.' : 'offline — replies may be limited.') +
+      ' Here is what needs attention.</div></div>' +
+      '<div class="stats">' +
+      '<div class="stat"><div class="k">Unread mail</div><div class="v ' + ((mail.unread||0)?'a':'g') + '">' + (mail.unread||0) + '</div><div class="h">' + (mail.inbox||0) + ' in inbox</div></div>' +
+      '<div class="stat"><div class="k">Live chats</div><div class="v b">' + (d.active_conversations||0) + '</div><div class="h">Public site</div></div>' +
+      '<div class="stat"><div class="k">Handoffs</div><div class="v a">' + handoffs.length + '</div><div class="h">Ready for you</div></div>' +
+      '<div class="stat"><div class="k">MRR</div><div class="v g">$' + Number(mrr||0).toLocaleString() + '</div><div class="h">' + realClients.length + ' paying client' + (realClients.length===1?'':'s') + '</div></div>' +
+      '</div>' +
+      '<div class="card"><div class="sec-head"><h3>Needs you</h3><button type="button" class="link-btn" data-go="mail">All mail</button></div>' +
+      actions + '</div>' +
+      nextSteps;
+
+    content.querySelectorAll('[data-go]').forEach(el => {
+      el.addEventListener('click', () => {
+        const tab = el.getAttribute('data-go');
+        const open = el.getAttribute('data-open');
+        if (tab === 'mail') {
+          state.mailFolder = 'inbox';
+          switchTab('mail');
+          if (open) setTimeout(() => renderMail(open), 0);
+        } else switchTab(tab);
+      });
+    });
+  }
+
+  async function renderMail(openId) {
+    content.innerHTML = '<div class="skeleton"></div>';
+    const d = await api('/api/admin/emails' + (state.mailFolder === 'all' ? '' : ('?folder=' + encodeURIComponent(state.mailFolder))));
+    await loadDash().catch(() => {});
+    const cfg = d.config || {};
+    const s = d.summary || {};
+    setBadge(s.unread || 0);
+
+    if (openId) {
+      const full = await api('/api/admin/emails/' + encodeURIComponent(openId));
+      const m = full.message;
+      if (!m) { state.mailFolder = 'inbox'; return renderMail(null); }
+      let actions = '<button type="button" class="btn ghost sm" id="mailBack">← Back</button>';
+      if (m.folder === 'drafts' || m.folder === 'outbox') {
+        actions += '<button type="button" class="btn green sm" id="mailSend">Send / Queue</button>';
+      }
+      if (m.folder === 'inbox') {
+        actions += '<button type="button" class="btn sm" id="mailReply">Reply with Harold</button>';
+      }
+      actions += '<button type="button" class="btn danger sm" id="mailDel">Delete</button>';
+      content.innerHTML =
+        '<div class="row" style="margin-bottom:12px">' + actions + '</div>' +
+        (isExample(m) ? '<div class="note">Example thread · safe to delete. Real mail appears here when SMTP is connected.</div>' : '') +
+        '<div class="card">' +
+        '<div style="font-size:12px;color:var(--muted)">' + esc(m.from) + ' → ' + esc(m.to) + '</div>' +
+        '<div style="font-size:18px;font-weight:700;margin:8px 0;letter-spacing:-.02em">' + esc(m.subject) + '</div>' +
+        '<span class="tag ' + esc(m.status || m.folder) + '">' + esc(m.status || m.folder) + '</span>' +
+        (m.company ? '<span class="tag">' + esc(m.company) + '</span>' : '') +
+        '<div style="white-space:pre-wrap;font-size:15px;line-height:1.55;margin-top:16px;color:#e4e4ec">' + esc(m.body) + '</div>' +
+        '<div class="meta">' + esc(m.created_at || '') + '</div></div>';
+      $('mailBack').onclick = () => renderMail(null);
+      const sd = $('mailSend'); if (sd) sd.onclick = () => sendMail(m.id);
+      const dl = $('mailDel'); if (dl) dl.onclick = () => delMail(m.id);
+      const rp = $('mailReply'); if (rp) rp.onclick = () => {
+        switchTab('chat');
+        setTimeout(() => {
+          const i = $('chatMsg');
+          if (i) {
+            i.value = 'Help me reply to this email from ' + m.from + ' about "' + m.subject + '":\n\n' + m.body;
+            i.focus();
+          }
+        }, 100);
+      };
+      return;
+    }
+
+    const folders = [
+      ['inbox', 'Inbox' + (s.unread ? ' · ' + s.unread : '')],
+      ['drafts', 'Drafts'],
+      ['outbox', 'Outbox'],
+      ['sent', 'Sent'],
+      ['all', 'All'],
+    ];
+    let html = '';
+    if (!cfg.configured) {
+      html += '<div class="note">Outbound is a full outbox. Add <b style="color:var(--text)">FINCH_EMAIL</b> + <b style="color:var(--text)">FINCH_EMAIL_PASSWORD</b> on Vercel to deliver for real. Drafts & queue still work.</div>';
+    } else {
+      html += '<div class="note" style="border-style:solid;border-color:rgba(52,211,153,.25);color:var(--green)">SMTP connected · ' + esc(cfg.from_address || '') + '</div>';
+    }
+    html += '<div class="chips">';
+    folders.forEach(([f, label]) => {
+      html += '<button type="button" class="chip' + (state.mailFolder === f ? ' on' : '') + '" data-folder="' + f + '">' + esc(label) + '</button>';
+    });
+    html += '</div>';
+
+    html += '<div class="card">' +
+      '<div class="sec-head"><h3>New outreach</h3></div>' +
+      '<div class="field"><label>Company</label><input id="cCompany" placeholder="Acme Corp" autocomplete="organization"></div>' +
+      '<div class="field"><label>To</label><input id="cTo" placeholder="cto@acme.com" inputmode="email" autocomplete="email"></div>' +
+      '<div class="field"><label>Finding / hook (optional)</label><input id="cFinding" placeholder="Exposed staging subdomain"></div>' +
+      '<div class="row" style="margin-top:4px">' +
+      '<button type="button" class="btn sm" id="btnCraft">Draft with Harold</button>' +
+      '<button type="button" class="btn ghost sm" id="btnManual">Write manually</button></div>' +
+      '<div id="manualBox" style="display:none;margin-top:12px">' +
+      '<div class="field"><label>Subject</label><input id="cSubj" placeholder="Subject"></div>' +
+      '<div class="field"><label>Body</label><textarea id="cBody" placeholder="Write the email…"></textarea></div>' +
+      '<button type="button" class="btn green sm" id="btnSaveDraft">Save draft</button></div></div>';
+
+    const msgs = d.messages || [];
+    if (!msgs.length) {
+      html += '<div class="empty"><div class="big">✉</div><h4>No messages here</h4>Draft outreach above — Harold will write it with you.</div>';
+    } else {
+      msgs.forEach(m => {
+        const unread = m.status === 'unread' ? ' unread' : '';
+        const who = m.folder === 'inbox' ? m.from : m.to;
+        const initials = String(who || '?').replace(/[^a-zA-Z0-9]/g, ' ').trim().split(/\s+/).slice(0, 2).map(x => x[0] || '').join('').toUpperCase() || '?';
+        html += '<div class="card tap mail-item' + unread + '" data-open="' + esc(m.id) + '"><div class="mail-row' + unread + '">' +
+          '<div class="av">' + esc(initials.slice(0, 2)) + '</div><div style="min-width:0;flex:1">' +
+          '<div class="from">' + esc(who) +
+          '<span class="tag ' + esc(m.status || m.folder) + '">' + esc(m.status || m.folder) + '</span>' +
+          (isExample(m) ? '<span class="tag ex">example</span>' : '') +
+          '</div><div class="subj">' + esc(m.subject) + '</div>' +
+          '<div class="prev">' + esc(String(m.body || '').replace(/\s+/g, ' ').slice(0, 110)) + '</div>' +
+          '<div class="meta">' + esc((m.company || '') + (m.created_at ? ' · ' + String(m.created_at).replace('T', ' ').slice(0, 16) : '')) + '</div>' +
+          '</div></div></div>';
+      });
+    }
+    content.innerHTML = html;
+
+    content.querySelectorAll('[data-folder]').forEach(btn => {
+      btn.onclick = () => { state.mailFolder = btn.getAttribute('data-folder'); renderMail(null); };
+    });
+    content.querySelectorAll('[data-open]').forEach(el => {
+      el.onclick = () => renderMail(el.getAttribute('data-open'));
+    });
+    const bc = $('btnCraft');
+    if (bc) bc.onclick = craftMail;
+    const bm = $('btnManual');
+    if (bm) bm.onclick = () => {
+      const box = $('manualBox');
+      box.style.display = box.style.display === 'none' ? 'block' : 'none';
+    };
+    const bs = $('btnSaveDraft');
+    if (bs) bs.onclick = saveManualDraft;
   }
 
   async function craftMail() {
-    var company = document.getElementById('cCompany').value.trim();
-    var to = document.getElementById('cTo').value.trim();
-    var finding = document.getElementById('cFinding').value.trim();
-    if (!to) { alert('Need an email address'); return; }
-    await api('/api/admin/emails', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'craft', company: company, to: to, finding: finding })
-    });
-    mailFolder = 'drafts';
-    renderEmails(null);
+    const company = ($('cCompany').value || '').trim();
+    const to = ($('cTo').value || '').trim();
+    const finding = ($('cFinding').value || '').trim();
+    if (!to) { toast('Add a recipient email'); return; }
+    const btn = $('btnCraft');
+    btn.disabled = true; btn.textContent = 'Drafting…';
+    try {
+      await api('/api/admin/emails', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'craft', company, to, finding })
+      });
+      toast('Draft ready');
+      state.mailFolder = 'drafts';
+      renderMail(null);
+    } catch (e) {
+      toast('Could not draft');
+      btn.disabled = false; btn.textContent = 'Draft with Harold';
+    }
   }
 
   async function saveManualDraft() {
-    var to = document.getElementById('cTo').value.trim();
-    var subject = document.getElementById('cSubj').value.trim();
-    var body = document.getElementById('cBody').value;
-    var company = document.getElementById('cCompany').value.trim();
-    if (!to) { alert('Need an email address'); return; }
+    const to = ($('cTo').value || '').trim();
+    const subject = ($('cSubj').value || '').trim();
+    const body = ($('cBody').value || '');
+    const company = ($('cCompany').value || '').trim();
+    if (!to) { toast('Add a recipient email'); return; }
     await api('/api/admin/emails', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'draft', to: to, subject: subject, body: body, company: company })
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'draft', to, subject, body, company })
     });
-    mailFolder = 'drafts';
-    renderEmails(null);
+    toast('Draft saved');
+    state.mailFolder = 'drafts';
+    renderMail(null);
   }
 
   async function sendMail(id) {
-    var r = await api('/api/admin/emails/' + encodeURIComponent(id) + '/send', { method: 'POST' });
-    if (r.sent) { mailFolder = 'sent'; alert('Sent.'); }
-    else if (r.status === 'queued') { mailFolder = 'outbox'; alert('Queued. Set FINCH_EMAIL + FINCH_EMAIL_PASSWORD on Vercel to deliver for real.'); }
-    else alert('Send issue: ' + (r.error || 'unknown'));
-    renderEmails(null);
+    try {
+      const r = await api('/api/admin/emails/' + encodeURIComponent(id) + '/send', { method: 'POST' });
+      if (r.sent) { toast('Sent'); state.mailFolder = 'sent'; }
+      else if (r.status === 'queued') { toast('Queued in outbox'); state.mailFolder = 'outbox'; }
+      else toast(r.error || 'Send failed');
+      renderMail(null);
+    } catch (e) { toast('Send failed'); }
   }
 
   async function delMail(id) {
     if (!confirm('Delete this message?')) return;
     await fetch('/api/admin/emails/' + encodeURIComponent(id), { method: 'DELETE' });
-    mailFolder = 'inbox';
-    renderEmails(null);
+    toast('Deleted');
+    renderMail(null);
   }
 
-  async function connectChat() {
-    var m = document.getElementById('chatMsgs');
-    if (!m) return;
-    m.innerHTML = '';
-    try {
-      var d = await api('/api/admin/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ admin_id: 'phone', start: true })
-      });
-      if (d.content) {
-        var div = document.createElement('div');
-        div.className = 'msg finch';
-        div.textContent = d.content;
-        m.appendChild(div);
+  async function renderChat() {
+    content.innerHTML =
+      '<div class="chat-wrap">' +
+      '<div class="chat-stream" id="chatMsgs"></div>' +
+      '<div class="suggest" id="suggest">' +
+      '<button type="button" data-q="What should we focus on today?">Focus today</button>' +
+      '<button type="button" data-q="Who should we email next?">Next email</button>' +
+      '<button type="button" data-q="Help me think through pricing.">Pricing</button>' +
+      '<button type="button" data-q="Be honest — how are we doing?">How are we doing?</button>' +
+      '</div></div>';
+    const stream = $('chatMsgs');
+    $('suggest').querySelectorAll('button').forEach(b => {
+      b.onclick = () => { $('chatMsg').value = b.getAttribute('data-q'); sendChat(); };
+    });
+
+    if (!state.chatReady) {
+      try {
+        const d = await api('/api/admin/chat', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ admin_id: state.adminId, start: true })
+        });
+        if (d.content) appendBubble('harold', d.content);
+        state.chatReady = true;
+      } catch (e) {
+        appendBubble('harold', "I'm having trouble reaching the line. Try again in a moment.");
       }
-      chatBootstrapped = true;
-    } catch (e) {}
+    } else {
+      appendBubble('harold', "Still here.");
+    }
+    stream.scrollTop = stream.scrollHeight;
+  }
+
+  function appendBubble(who, text) {
+    const stream = $('chatMsgs');
+    if (!stream) return;
+    const div = document.createElement('div');
+    div.className = 'bubble ' + (who === 'you' ? 'you' : 'harold');
+    if (who !== 'you') {
+      const w = document.createElement('div');
+      w.className = 'who';
+      w.textContent = 'Harold';
+      div.appendChild(w);
+    }
+    div.appendChild(document.createTextNode(text));
+    stream.appendChild(div);
+    stream.scrollTop = stream.scrollHeight;
+    return div;
   }
 
   async function sendChat() {
-    var i = document.getElementById('chatMsg');
-    var t = i.value.trim();
+    const i = $('chatMsg');
+    const t = (i.value || '').trim();
     if (!t) return;
-    var m = document.getElementById('chatMsgs');
-    var you = document.createElement('div');
-    you.className = 'msg you';
-    you.textContent = t;
-    m.appendChild(you);
-    m.scrollTop = m.scrollHeight;
     i.value = '';
-    var thinking = document.createElement('div');
+    appendBubble('you', t);
+    const stream = $('chatMsgs');
+    const thinking = document.createElement('div');
     thinking.className = 'typing';
-    thinking.textContent = 'Harold is thinking…';
-    m.appendChild(thinking);
-    m.scrollTop = m.scrollHeight;
+    thinking.innerHTML = '<i></i><i></i><i></i>';
+    stream.appendChild(thinking);
+    stream.scrollTop = stream.scrollHeight;
+    $('chatSend').disabled = true;
     try {
-      var d = await api('/api/admin/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ admin_id: 'phone', content: t })
+      const d = await api('/api/admin/chat', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ admin_id: state.adminId, content: t, message: t })
       });
       thinking.remove();
-      var div = document.createElement('div');
-      div.className = 'msg finch';
-      div.textContent = d.content || '…';
-      m.appendChild(div);
-      m.scrollTop = m.scrollHeight;
+      appendBubble('harold', d.content || '…');
     } catch (e) {
       thinking.remove();
-      var err = document.createElement('div');
-      err.className = 'msg finch';
-      err.textContent = 'Connection hitch. Try again.';
-      m.appendChild(err);
+      appendBubble('harold', 'Line dropped. Say that again.');
     }
+    $('chatSend').disabled = false;
+    i.focus();
   }
 
-  renderTab('status');
+  $('chatSend').onclick = sendChat;
+  $('chatMsg').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); }
+  });
+
+  async function renderMore() {
+    content.innerHTML = '<div class="skeleton"></div>';
+    const d = await loadDash();
+    const hands = d.pending_handoffs || [];
+    const clients = (d.clients || []).filter(c => !(c.demo || String(c.company||'').toLowerCase()==='bigbank'));
+    const docs = d.documents || [];
+
+    let html = '<div class="card"><div class="sec-head"><h3>Handoffs</h3></div>';
+    if (!hands.length) {
+      html += '<div class="empty" style="padding:18px"><h4 style="font-size:14px">None waiting</h4>' +
+        'When a prospect closes on the public chat, they land here for you to take over.</div>';
+    } else {
+      hands.forEach(h => {
+        html += '<div class="person" style="padding:10px 0;border-top:1px solid var(--line)">' +
+          '<div class="av">✓</div><div><div class="name">' + esc(h.company || 'Prospect') + '</div>' +
+          '<div class="sub">' + esc(h.email || '') + '</div></div>' +
+          '<div class="price">$' + Number(h.price||0).toLocaleString() + '</div></div>';
+      });
+    }
+    html += '</div>';
+
+    html += '<div class="card"><div class="sec-head"><h3>Clients</h3></div>';
+    if (!clients.length) {
+      html += '<div class="empty" style="padding:18px"><h4 style="font-size:14px">No paid clients yet</h4>' +
+        'Close your first deal from the public chat or outbound mail. MRR will show here.</div>';
+    } else {
+      clients.forEach(c => {
+        html += '<div class="person" style="padding:10px 0;border-top:1px solid var(--line)">' +
+          '<div class="av">' + esc(String(c.company||'?')[0]||'?') + '</div>' +
+          '<div><div class="name">' + esc(c.company) + '</div><div class="sub">' + esc(c.email||'') + '</div></div>' +
+          '<div class="price">$' + Number(c.price||0).toLocaleString() + '<span style="color:var(--dim);font-weight:500">/mo</span></div></div>';
+      });
+    }
+    html += '</div>';
+
+    html += '<div class="card"><div class="sec-head"><h3>Documents</h3></div>';
+    if (!docs.length) {
+      html += '<p style="font-size:13px;color:var(--muted);line-height:1.5">No docs yet. Ask Harold to draft a one-pager, MSA outline, or scan summary in chat.</p>';
+    } else {
+      docs.forEach(doc => {
+        html += '<div style="padding:8px 0;border-top:1px solid var(--line);font-size:13px">' + esc(doc.name) + '</div>';
+      });
+    }
+    html += '</div>';
+
+    html += '<div class="card"><div class="sec-head"><h3>System</h3></div>' +
+      '<div style="font-size:13px;line-height:1.7;color:var(--muted)">' +
+      'Brain: <b style="color:' + (d.brain_online?'var(--green)':'var(--red)') + '">' + (d.brain_online?'Online':'Offline') + '</b><br>' +
+      'Memories: ' + (d.memory_count||0) + '<br>' +
+      'Mailboxes: ' + ((d.mail||{}).total||0) + ' messages<br>' +
+      'Public chat: <a href="/" style="color:var(--green)" target="_blank" rel="noopener">open ↗</a>' +
+      '</div></div>';
+
+    content.innerHTML = html;
+  }
+
+  // boot on home
+  switchTab('home');
+  // soft refresh badge every 45s
+  setInterval(() => { loadDash().catch(() => {}); }, 45000);
+})();
 </script>
 </body>
 </html>
