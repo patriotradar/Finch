@@ -18,7 +18,7 @@ from core.models import (
     AgreementAcceptance, ApprovedAsset, AssetStatus, CustomerAlert, Observation,
     Invoice, Report, Role, Subscription, Workspace, WorkspaceUser, utcnow,
 )
-from core.stripe_checkout import StripeCheckout
+from core.paypal_checkout import PayPalCheckout
 from core.security import LoginThrottle
 from core.tenant import require_workspace_user
 from asm.report_pdf import build_report_pdf
@@ -56,6 +56,9 @@ class InviteBody(BaseModel):
 class AcceptInviteBody(TokenBody):
     password: str = Field(min_length=12, max_length=200)
 
+class PayPalCaptureBody(BaseModel):
+    order_id: str = Field(min_length=3, max_length=100)
+
 
 class AssetBody(BaseModel):
     value: str = Field(min_length=3, max_length=300)
@@ -86,6 +89,8 @@ def build_customer_router(session_factory, account_mailer=None) -> APIRouter:
             "workspace_already_cancelled",
             "checkout_not_configured", "checkout_provider_unavailable",
             "licence_already_active",
+            "subscription_not_found", "payment_not_completed",
+            "unexpected_payment_amount", "invalid_order_id",
         }
         if code not in allowed:
             return JSONResponse({"error": "request_failed"}, status_code=500)
@@ -94,7 +99,10 @@ def build_customer_router(session_factory, account_mailer=None) -> APIRouter:
             status = 409
         if code in {"checkout_not_configured", "checkout_provider_unavailable"}:
             status = 503
-        if code in {"asset_not_found", "alert_not_found", "report_not_found", "user_not_found"}:
+        if code in {
+            "asset_not_found", "alert_not_found", "report_not_found",
+            "user_not_found", "subscription_not_found",
+        }:
             status = 404
         return JSONResponse({"error": code}, status_code=status)
 
@@ -656,7 +664,8 @@ def build_customer_router(session_factory, account_mailer=None) -> APIRouter:
                     Invoice.workspace_id == active.workspace_id
                 ).order_by(Invoice.issued_at.desc()).limit(20)).all()
                 return {
-                    "checkout_configured": StripeCheckout().configured,
+                    "checkout_configured": PayPalCheckout().configured,
+                    "checkout_provider": "paypal",
                     "subscription": None if subscription is None else {
                         "status": subscription.status,
                         "amount_pence": subscription.amount_pence,
@@ -697,13 +706,50 @@ def build_customer_router(session_factory, account_mailer=None) -> APIRouter:
                 ))
                 if existing and existing.status == "active":
                     raise ValueError("licence_already_active")
-                provider = StripeCheckout()
-                created = provider.create_session(active.workspace_id, user.email)
+                provider = PayPalCheckout()
+                created = provider.create_order(active.workspace_id)
                 BillingService(db).create_pending(
-                    active.workspace_id, "stripe", created["id"]
+                    active.workspace_id, "paypal", created["id"]
                 )
                 db.commit()
                 return {"checkout_url": created["url"]}
+            finally:
+                db.close()
+        except Exception as error:
+            return error_response(error)
+
+    @router.post("/billing/paypal/capture")
+    def capture_paypal_order(
+        body: PayPalCaptureBody,
+        aegis_customer_session: str | None = Cookie(default=None),
+        x_csrf_token: str | None = Header(default=None),
+    ):
+        try:
+            db, _, active, user = customer_context(
+                aegis_customer_session, x_csrf_token, require_csrf=True
+            )
+            try:
+                if user.role != Role.OWNER:
+                    raise PermissionError("owner_access_required")
+                subscription = db.scalar(select(Subscription).where(
+                    Subscription.workspace_id == active.workspace_id,
+                    Subscription.provider == "paypal",
+                    Subscription.provider_reference == body.order_id,
+                ))
+                if subscription is None:
+                    raise LookupError("subscription_not_found")
+                captured = PayPalCheckout().capture_order(body.order_id)
+                BillingService(db).record_payment(
+                    "paypal",
+                    f"paypal-capture-{captured['capture_id']}",
+                    body.order_id,
+                    captured["capture_id"],
+                    captured["amount_pence"],
+                    captured["currency"],
+                    payload=captured["raw"],
+                )
+                db.commit()
+                return {"captured": True, "licence_status": "active"}
             finally:
                 db.close()
         except Exception as error:

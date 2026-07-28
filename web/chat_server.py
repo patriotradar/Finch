@@ -41,8 +41,6 @@ from core.database import build_session_factory
 from web.customer_api import build_customer_router
 from core.controls import ControlService
 from core.owner_assistant import OwnerConversationService, build_daily_briefing
-from core.billing import BillingService
-from core.stripe_checkout import StripeCheckout
 from sales.outreach_policy import OptOutTokens, OutreachPolicy
 from messaging.account_mailer import AccountMailer
 import yaml
@@ -114,7 +112,7 @@ conversation_engine = SalesConversation(None, pricing, memory, config)
 crm = CRM(data_dir=str(_DATA_ROOT / "clients"))
 docs_engine = FinchDocs(docs_dir=str(_DATA_ROOT / "documents"))
 mail_store = MailStore(str(_DATA_ROOT))
-lead_pipeline = LeadPipeline(str(_DATA_ROOT))
+lead_pipeline = LeadPipeline(db_session_factory)
 
 # Do NOT seed fake BigBank clients on cloud — empty pipeline is more honest
 # than a prototype $1,970 MRR. Real clients arrive via won deal/handoff.
@@ -514,35 +512,6 @@ async def unsubscribe(token: str = ""):
     )
 
 
-@app.post("/api/billing/stripe/webhook")
-async def stripe_webhook(request: Request):
-    raw = await request.body()
-    try:
-        event = StripeCheckout().verify_event(
-            raw, request.headers.get("stripe-signature", "")
-        )
-        event_type = event.get("type")
-        obj = ((event.get("data") or {}).get("object") or {})
-        with db_session_factory() as session:
-            billing = BillingService(session)
-            if event_type == "checkout.session.completed" and obj.get("payment_status") == "paid":
-                billing.record_payment(
-                    "stripe",
-                    str(event["id"]),
-                    str(obj["id"]),
-                    str(obj.get("payment_intent") or obj["id"]),
-                    int(obj.get("amount_total") or 0),
-                    str(obj.get("currency") or ""),
-                    payload={"checkout_session_id": obj.get("id")},
-                )
-            elif event_type == "checkout.session.async_payment_failed":
-                billing.payment_failed(str(event["id"]), str(obj["id"]), {
-                    "checkout_session_id": obj.get("id"),
-                })
-            session.commit()
-    except (ValueError, KeyError, LookupError, RuntimeError):
-        return JSONResponse({"error": "invalid_webhook"}, status_code=400)
-    return {"received": True}
 
 
 @app.get("/api/admin/dashboard")
@@ -878,7 +847,16 @@ async def admin_research_lead(request: Request):
     body = await request.json()
     domain = (body.get("domain") or body.get("company") or "").strip()
     company = (body.get("company_name") or body.get("name") or "").strip()
-    result = lead_pipeline.research(domain, company=company)
+    result = lead_pipeline.research(
+        domain,
+        company=company,
+        source_url=(body.get("source_url") or "").strip(),
+        signal_title=(body.get("signal_title") or "").strip(),
+        signal_excerpt=(body.get("signal_excerpt") or "").strip(),
+        business_type=(body.get("business_type") or "").strip(),
+        contact_email=(body.get("contact_email") or "").strip(),
+        contact_source=(body.get("contact_source") or "").strip(),
+    )
     status = 200 if result.get("ok") else 400
     return JSONResponse(result, status_code=status)
 
@@ -942,13 +920,30 @@ async def admin_send_lead(lead_id: str, request: Request):
         body = await request.json()
     except Exception:
         body = {}
+    to = (body.get("email") or lead.get("selected_email") or "").strip()
+    if not to and lead.get("emails"):
+        to = lead["emails"][0]["email"]
+    try:
+        OptOutTokens().issue(to)
+    except Exception:
+        return JSONResponse(
+            {"ok": False, "error": "optout_secret_not_configured"},
+            status_code=503,
+        )
+    with db_session_factory() as db:
+        allowed, reason = OutreachPolicy(db).can_contact(
+            lead.get("company") or "",
+            to,
+            lead.get("contact_source") or "",
+            lead.get("business_type") or "",
+            followup=False,
+        )
+        if not allowed:
+            return JSONResponse({"ok": False, "error": reason}, status_code=409)
     # Prefer existing draft
     mid = body.get("message_id") or lead.get("draft_message_id")
     if not mid:
         # draft first
-        to = (body.get("email") or lead.get("selected_email") or "").strip()
-        if not to and lead.get("emails"):
-            to = lead["emails"][0]["email"]
         if not to:
             return JSONResponse({"ok": False, "error": "No email"}, status_code=400)
         hook = lead_pipeline.best_hook(lead)
@@ -965,6 +960,15 @@ async def admin_send_lead(lead_id: str, request: Request):
     result = mail_store.queue_send(mid)
     if result.get("sent"):
         lead_pipeline.mark_sent(lead_id, mid)
+        with db_session_factory() as db:
+            OutreachPolicy(db).record_sent(
+                lead.get("company") or "",
+                to,
+                lead.get("contact_source") or "",
+                "initial",
+                {"lead_id": lead_id, "message_id": mid},
+            )
+            db.commit()
     else:
         lead_pipeline.mark_drafted(lead_id, mid)
     if result.get("ok"):

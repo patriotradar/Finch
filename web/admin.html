@@ -853,7 +853,6 @@
       if (!l) return renderLeads(null);
       let html = '<div class="row" style="margin-bottom:12px">' +
         '<button type="button" class="btn ghost sm" id="leadBack">\u2190 Back</button>' +
-        '<button type="button" class="btn sm" id="leadReResearch">Re-scan</button>' +
         '<button type="button" class="btn danger sm" id="leadDel">Delete</button></div>';
 
       html += '<div class="card">' +
@@ -864,7 +863,7 @@
       html += '<div class="card"><div class="sec-head"><h3>Contact emails</h3></div>';
       const emails = l.emails || [];
       if (!emails.length) {
-        html += '<div class="note">No public emails found on the site' + (d.hunter ? '' : ' \u2014 add <b style="color:var(--text)">HUNTER_API_KEY</b> on Vercel for people-level contacts') + '. Role guesses are included when mail resolves.</div>';
+        html += '<div class="note">No sourced business email has been recorded. Aegis never guesses addresses.</div>';
       }
       emails.forEach(e => {
         const sel = (l.selected_email === e.email);
@@ -876,19 +875,12 @@
       });
       html += '</div>';
 
-      const findings = l.findings || [];
-      if (findings.length) {
-        html += '<div class="card"><div class="sec-head"><h3>Surface findings</h3></div>';
-        findings.forEach(f => {
-          html += '<div style="padding:9px 0;border-top:1px solid var(--line)">' +
-            '<div style="font-size:14px;font-weight:600;color:' + sevColor(f.severity) + '">' + esc(f.title) + '</div>' +
-            '<div style="font-size:12.5px;color:var(--muted);line-height:1.5;margin-top:2px">' + esc(f.detail) + '</div></div>';
-        });
-        html += '</div>';
-      }
+      const signals = l.signals || [];
+      html += '<div class="card"><div class="sec-head"><h3>Public security-interest signal</h3></div>' +
+        signals.map(s => '<div style="padding:9px 0"><div class="name">' + esc(s.title) + '</div><div class="sub">' + esc(s.excerpt) + '</div><a href="' + esc(s.source_url) + '" target="_blank" rel="noopener">Open source</a></div>').join('') + '</div>';
 
       html += '<div class="card"><div class="sec-head"><h3>Outreach</h3></div>' +
-        '<div style="font-size:13px;color:var(--muted);line-height:1.55;margin-bottom:12px">Harold will draft from verified public observations for ' + esc(l.company || l.domain) + ' and write to <b style="color:var(--text)">' + esc(l.selected_email || 'no email picked yet') + '</b>.</div>' +
+        '<div style="font-size:13px;color:var(--muted);line-height:1.55;margin-bottom:12px">Harold will refer only to the sourced public company update—never an invented vulnerability—and write to <b style="color:var(--text)">' + esc(l.selected_email || 'no email picked yet') + '</b>.</div>' +
         '<div class="row">' +
         '<button type="button" class="btn sm" id="leadDraft"' + (l.selected_email ? '' : ' disabled') + '>Draft with Harold</button>' +
         '<button type="button" class="btn green sm" id="leadSend"' + (l.selected_email ? '' : ' disabled') + '>Draft + Send</button></div></div>';
@@ -899,12 +891,6 @@
         if (!confirm('Delete this lead?')) return;
         await fetch('/api/admin/leads/' + encodeURIComponent(openId), { method: 'DELETE' });
         toast('Lead deleted'); renderLeads(null);
-      };
-      $('leadReResearch').onclick = async () => {
-        toast('Re-scanning\u2026');
-        await api('/api/admin/leads/research', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ domain: l.domain, name: l.company }) });
-        renderLeads(openId);
       };
       content.querySelectorAll('[data-sel]').forEach(btn => {
         btn.onclick = async () => {
@@ -936,21 +922,23 @@
     }
 
     // List view
-    let html = '<div class="card"><div class="sec-head"><h3>Find a lead</h3></div>' +
+    let html = '<div class="card"><div class="sec-head"><h3>Record a sourced lead</h3></div>' +
       '<div class="field"><label>Company domain</label><input id="lDomain" placeholder="acme.com" inputmode="url" autocapitalize="off" autocomplete="off"></div>' +
-      '<div class="field"><label>Company name (optional)</label><input id="lCompany" placeholder="Acme Corp" autocomplete="organization"></div>' +
-      '<button type="button" class="btn sm" id="btnResearch" style="margin-top:4px">Research: surface + emails</button></div>';
+      '<div class="field"><label>Company name</label><input id="lCompany" placeholder="Acme Ltd" autocomplete="organization"></div>' +
+      '<div class="field"><label>Company type</label><select id="lType"><option value="limited_company">Limited company</option><option value="plc">PLC</option><option value="corporate_body">Corporate body</option></select></div>' +
+      '<div class="field"><label>Public source URL</label><input id="lSourceUrl" placeholder="https://acme.com/news/security-update" inputmode="url"></div>' +
+      '<div class="field"><label>Public update title</label><input id="lSignalTitle" placeholder="Acme renews Cyber Essentials"></div>' +
+      '<div class="field"><label>Relevant excerpt</label><textarea id="lSignalExcerpt" placeholder="Copy a short factual excerpt showing the organisation is discussing cyber or information security."></textarea></div>' +
+      '<div class="field"><label>Sourced business email (optional)</label><input id="lEmail" type="email" placeholder="security@acme.com"></div>' +
+      '<div class="field"><label>Email source URL (required if email supplied)</label><input id="lEmailSource" placeholder="https://acme.com/contact" inputmode="url"></div>' +
+      '<button type="button" class="btn sm" id="btnResearch" style="margin-top:4px">Record sourced lead</button></div>';
 
     html += '<div class="stats" style="margin:0 0 14px">' +
       '<div class="stat"><div class="k">Leads</div><div class="v b">' + (sum.total||0) + '</div><div class="h">researched</div></div>' +
       '<div class="stat"><div class="k">With emails</div><div class="v g">' + (sum.with_emails||0) + '</div><div class="h">ready to contact</div></div></div>';
 
-    if (!d.hunter) {
-      html += '<div class="note">Tip: set <b style="color:var(--text)">HUNTER_API_KEY</b> on Vercel to retrieve sourced business contacts; otherwise Harold uses publicly listed business addresses.</div>';
-    }
-
     if (!leads.length) {
-      html += '<div class="empty"><div class="big">\u25ce</div><h4>No leads yet</h4>Add a company domain to research its public business information.</div>';
+      html += '<div class="empty"><div class="big">\u25ce</div><h4>No leads yet</h4>Record a UK corporate prospect with a genuine public security-interest source.</div>';
     } else {
       leads.forEach(l => {
         const n = (l.emails || []).length;
@@ -969,16 +957,21 @@
     $('btnResearch').onclick = async () => {
       const domain = ($('lDomain').value || '').trim();
       const company = ($('lCompany').value || '').trim();
-      if (!domain) { toast('Enter a domain first'); return; }
+      const source_url = ($('lSourceUrl').value || '').trim();
+      const signal_title = ($('lSignalTitle').value || '').trim();
+      const signal_excerpt = ($('lSignalExcerpt').value || '').trim();
+      const contact_email = ($('lEmail').value || '').trim();
+      const contact_source = ($('lEmailSource').value || '').trim();
+      if (!domain || !company || !source_url || !signal_title || !signal_excerpt) { toast('Complete the company and public-source fields'); return; }
       const btn = $('btnResearch');
-      btn.disabled = true; btn.textContent = 'Scanning\u2026 (10-30s)';
+      btn.disabled = true; btn.textContent = 'Recording\u2026';
       try {
         const r = await api('/api/admin/leads/research', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ domain, name: company }) });
+          body: JSON.stringify({ domain, company_name: company, business_type: $('lType').value, source_url, signal_title, signal_excerpt, contact_email, contact_source }) });
         if (r.ok && r.lead) { toast('Lead ready'); renderLeads(r.lead.id); }
-        else { toast(r.error || 'Research failed'); btn.disabled = false; btn.textContent = 'Research: surface + emails'; }
+        else { toast(r.error || 'Lead rejected'); btn.disabled = false; btn.textContent = 'Record sourced lead'; }
       } catch (e) {
-        toast('Research failed'); btn.disabled = false; btn.textContent = 'Research: surface + emails';
+        toast('Lead rejected'); btn.disabled = false; btn.textContent = 'Record sourced lead';
       }
     };
   }

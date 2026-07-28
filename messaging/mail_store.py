@@ -285,19 +285,18 @@ class MailStore:
         return False
 
     def craft_outreach(self, company: str, email: str, finding: str = "") -> Dict[str, str]:
-        chat = os.environ.get("FINCH_WEB_CHAT_URL", "https://finch-ocxl.vercel.app")
+        chat = os.environ.get("AEGIS_PUBLIC_URL") or os.environ.get("FINCH_WEB_CHAT_URL") or ""
         company = company or "your organization"
         if finding:
             body = (
-                f"Hi,\n\nI'm Harold from Aegis. During a limited review of public "
-                f"information, Aegis recorded this potential indicator relating to {company}:\n\n"
+                f"Hi,\n\nI'm Harold from Aegis. I found this public company update from {company}:\n\n"
                 f"{finding}\n\n"
-                f"This is not evidence of exploitation and should be verified by your IT team. "
-                f"I can explain the observation and Aegis's limitations.\n\n"
-                f"Or chat live: {chat}\n\n"
+                "I am not suggesting that Aegis found a vulnerability. The update simply "
+                "indicates that public security visibility may be relevant to your organisation.\n\n"
+                f"A seven-minute overview is available here: {chat}\n\n"
                 f"Best,\nHarold\nAegis"
             )
-            subject = f"Public-information observation for {company}"
+            subject = f"Public-information monitoring for {company}"
         else:
             body = (
                 f"Hi,\n\nI'm Harold from Aegis. Aegis provides passive public-information "
@@ -307,4 +306,10 @@ class MailStore:
                 f"Best,\nHarold\nAegis"
             )
             subject = f"Passive public-information monitoring for {company}"
+        try:
+            from sales.outreach_policy import OptOutTokens
+            token = OptOutTokens().issue(email)
+            body += f"\n\nOpt out: {chat.rstrip('/')}/unsubscribe?token={token}"
+        except Exception:
+            body += "\n\nOpt-out link will be added when outreach delivery is configured."
         return {"subject": subject, "body": body, "to": email, "company": company}

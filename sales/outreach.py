@@ -23,19 +23,19 @@ class OutreachEngine:
 
     def craft_initial_email(self, lead):
         company = lead.get("company", "your organization")
-        vulns = lead.get("vulnerabilities", [])
         chat_ps = self._chat_postscript()
-        if not vulns:
+        signals = lead.get("signals") or []
+        if not signals:
             return self._craft_generic_email(lead)
-        best = vulns[0].get("finding", vulns[0].get("result", ""))
-        best_plain = translate_text(best, "client")
+        signal = signals[0]
+        source = signal.get("source_url", "")
+        title = signal.get("title", "your public security update")
         return {
-            "subject": f"Public-information observation for {company}",
-            "body": f"Hi,\n\nI'm Harold from Aegis. During a limited review of public "
-                    f"information, Aegis recorded this potential indicator relating to {company}:\n\n"
-                    f"{best_plain}\n\n"
-                    f"This is not evidence of exploitation and should be verified by your IT team. "
-                    f"I can explain the observation and the service limitations.\n\n"
+            "subject": f"Public-information monitoring for {company}",
+            "body": f"Hi,\n\nI'm Harold from Aegis. I found your public update, "
+                    f"“{title}” ({source}).\n\n"
+                    "I am not suggesting that Aegis found a vulnerability. The update simply "
+                    "indicates that public security visibility may be relevant to your organisation.\n\n"
                     f"{chat_ps}"
                     f"Best,\nHarold\nAegis"
         }
@@ -54,7 +54,7 @@ class OutreachEngine:
                      f"not claim that a setting proves compromise.\n\nHarold\nAegis"},
             {"subject": f"Last note — {company}",
              "body": f"Hi,\n\nLast email from me. If the timing isn't right or you've got this covered, "
-                     f"just say so and I'll stop.\n\nIf you do want the free assessment, reply \"yes.\"\n\n"
+                    f"just say so and I'll stop.\n\nIf you want the short product overview, reply \"yes.\"\n\n"
                      f"Either way, this is the final follow-up.\n\nHarold\nAegis"},
         ]
         return templates[min(seq - 1, len(templates) - 1)]

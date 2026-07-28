@@ -263,6 +263,26 @@ class OutreachActivity(Base):
     payload: Mapped[dict] = mapped_column(JSON, default=dict)
 
 
+class LeadCandidate(Base):
+    __tablename__ = "lead_candidates"
+    __table_args__ = (UniqueConstraint("domain"),)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid4)
+    company_name: Mapped[str] = mapped_column(String(200))
+    domain: Mapped[str] = mapped_column(String(253), index=True)
+    business_type: Mapped[str] = mapped_column(String(80))
+    stage: Mapped[str] = mapped_column(String(32), default="sourced")
+    contact_email: Mapped[str | None] = mapped_column(String(320))
+    contact_source: Mapped[str | None] = mapped_column(Text)
+    signal_url: Mapped[str] = mapped_column(Text)
+    signal_title: Mapped[str] = mapped_column(String(240))
+    signal_excerpt: Mapped[str] = mapped_column(Text)
+    email_validated: Mapped[bool] = mapped_column(Boolean, default=False)
+    draft_message_id: Mapped[str | None] = mapped_column(String(100))
+    sent_message_id: Mapped[str | None] = mapped_column(String(100))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
 class SuppressionRecord(Base):
     __tablename__ = "suppression_records"
     email: Mapped[str] = mapped_column(String(320), primary_key=True)

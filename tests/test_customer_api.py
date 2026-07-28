@@ -115,10 +115,20 @@ def test_workspace_export_is_tenant_scoped_and_cancellation_revokes_session(monk
 
 def test_owner_can_start_fixed_price_checkout(monkeypatch):
     monkeypatch.setattr(
-        "web.customer_api.StripeCheckout.create_session",
-        lambda self, workspace_id, email: {
-            "id": "cs_test_workspace",
-            "url": "https://checkout.stripe.com/c/pay/test",
+        "web.customer_api.PayPalCheckout.create_order",
+        lambda self, workspace_id: {
+            "id": "paypal-order-workspace",
+            "url": "https://www.sandbox.paypal.com/checkoutnow?token=test",
+        },
+    )
+    monkeypatch.setattr(
+        "web.customer_api.PayPalCheckout.capture_order",
+        lambda self, order_id: {
+            "order_id": order_id,
+            "capture_id": "paypal-capture-1",
+            "amount_pence": 99500,
+            "currency": "GBP",
+            "raw": {"status": "COMPLETED"},
         },
     )
     with client(monkeypatch) as api:
@@ -128,7 +138,15 @@ def test_owner_can_start_fixed_price_checkout(monkeypatch):
             headers={"X-CSRF-Token": csrf},
         )
         assert checkout.status_code == 200
-        assert checkout.json()["checkout_url"].startswith("https://checkout.stripe.com/")
+        assert checkout.json()["checkout_url"].startswith("https://www.sandbox.paypal.com/")
         billing = api.get("/api/account/billing").json()
         assert billing["subscription"]["status"] == "pending"
         assert billing["subscription"]["amount_pence"] == 99500
+        assert billing["checkout_provider"] == "paypal"
+        capture = api.post(
+            "/api/account/billing/paypal/capture",
+            json={"order_id": "paypal-order-workspace"},
+            headers={"X-CSRF-Token": csrf},
+        )
+        assert capture.status_code == 200
+        assert api.get("/api/account/billing").json()["subscription"]["status"] == "active"
