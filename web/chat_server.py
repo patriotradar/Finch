@@ -41,6 +41,7 @@ from core.database import build_session_factory
 from web.customer_api import build_customer_router
 from core.controls import ControlService
 from sales.outreach_policy import OptOutTokens, OutreachPolicy
+from messaging.account_mailer import AccountMailer
 import yaml
 
 
@@ -54,7 +55,7 @@ def load_config():
 
 app = FastAPI(title="Aegis", version="2.0")
 db_session_factory = build_session_factory()
-app.include_router(build_customer_router(db_session_factory))
+app.include_router(build_customer_router(db_session_factory, AccountMailer()))
 config = load_config()
 owner_auth = OwnerAuth.from_environment()
 login_throttle = LoginThrottle()
@@ -161,7 +162,7 @@ async def icon_192():
         '<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 192 192">'
         '<rect width="192" height="192" rx="32" fill="#0a0a0f"/>'
         '<text x="96" y="110" text-anchor="middle" font-family="serif" font-size="96" '
-        'font-weight="bold" fill="#4ade80">F</text>'
+        'font-weight="bold" fill="#4ade80">A</text>'
         '<circle cx="150" cy="50" r="20" fill="#2563eb" opacity="0.8"/>'
         '</svg>'
     )
@@ -174,7 +175,7 @@ async def icon_512():
         '<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">'
         '<rect width="512" height="512" rx="80" fill="#0a0a0f"/>'
         '<text x="256" y="290" text-anchor="middle" font-family="serif" font-size="256" '
-        'font-weight="bold" fill="#4ade80">F</text>'
+        'font-weight="bold" fill="#4ade80">A</text>'
         '<circle cx="390" cy="130" r="55" fill="#2563eb" opacity="0.8"/>'
         '</svg>'
     )
@@ -185,11 +186,46 @@ async def icon_512():
 # ── PUBLIC: PROSPECT CHAT ────────────────────────────────────────────
 
 @app.get("/", response_class=HTMLResponse)
+async def landing_page():
+    return HTMLResponse((Path(__file__).parent / "landing.html").read_text(encoding="utf-8"))
+
+
+@app.get("/chat", response_class=HTMLResponse)
 async def prospect_chat():
     html_path = Path(__file__).parent / "chat.html"
     if html_path.exists():
         return HTMLResponse(html_path.read_text(encoding="utf-8"))
     return HTMLResponse(PROSPECT_HTML)
+
+
+@app.get("/account", response_class=HTMLResponse)
+async def customer_account_page():
+    return HTMLResponse((Path(__file__).parent / "account.html").read_text(encoding="utf-8"))
+
+
+@app.get("/brand/aegis-mark.svg")
+async def aegis_mark():
+    return FileResponse(Path(__file__).parent / "aegis-mark.svg", media_type="image/svg+xml")
+
+
+@app.get("/brand/aegis-wordmark.svg")
+async def aegis_wordmark():
+    return FileResponse(Path(__file__).parent / "aegis-wordmark.svg", media_type="image/svg+xml")
+
+
+@app.get("/legal/privacy", response_class=HTMLResponse)
+async def privacy_notice():
+    return HTMLResponse((Path(__file__).parent / "privacy.html").read_text(encoding="utf-8"))
+
+
+@app.get("/legal/terms", response_class=HTMLResponse)
+async def subscription_terms():
+    return HTMLResponse((Path(__file__).parent / "terms.html").read_text(encoding="utf-8"))
+
+
+@app.get("/legal/acceptable-use", response_class=HTMLResponse)
+async def acceptable_use():
+    return HTMLResponse((Path(__file__).parent / "acceptable-use.html").read_text(encoding="utf-8"))
 
 
 @app.websocket("/ws/{prospect_id}")

@@ -1268,7 +1268,7 @@
       'Brain: <b style="color:' + (d.brain_online?'var(--green)':'var(--red)') + '">' + (d.brain_online?'Online':'Offline') + '</b><br>' +
       'Memories: ' + (d.memory_count||0) + '<br>' +
       'Mailboxes: ' + ((d.mail||{}).total||0) + ' messages<br>' +
-      'Public chat: <a href="/" style="color:var(--green)" target="_blank" rel="noopener">open ↗</a>' +
+      'Public chat: <a href="/chat" style="color:var(--green)" target="_blank" rel="noopener">open ↗</a>' +
       '</div></div>';
 
     content.innerHTML = html;

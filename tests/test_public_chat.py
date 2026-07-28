@@ -9,7 +9,7 @@ def test_public_chat_is_text_only_and_transparent(monkeypatch, tmp_path):
     sys.modules.pop("web.chat_server", None)
     module = importlib.import_module("web.chat_server")
     with TestClient(module.app) as client:
-        page = client.get("/")
+        page = client.get("/chat")
         assert page.status_code == 200
         assert 'id="micBtn"' not in page.text
         assert 'id="speakBtn"' not in page.text
@@ -20,4 +20,3 @@ def test_public_chat_is_text_only_and_transparent(monkeypatch, tmp_path):
         assert "Harold" in greeting.json()["content"]
         assert "passive" in greeting.json()["content"].lower()
         assert "technical co-founder" not in greeting.json()["content"].lower()
-

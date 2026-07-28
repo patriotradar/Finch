@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="Aegis passively monitors customer-approved internet assets using public information and produces evidence-led reports.">
+<title>Aegis — Know what the public internet shows</title>
+<link rel="icon" href="/brand/aegis-mark.svg" type="image/svg+xml">
+<style>
+:root{--bg:#07100d;--panel:#0d1915;--line:#20342c;--text:#edf7f2;--muted:#9bb2a8;--green:#34d399;--green2:#a7f3d0;--max:1120px}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--bg);color:var(--text);font:16px/1.55 Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,sans-serif}
+a{color:inherit}nav{height:76px;display:flex;align-items:center;justify-content:space-between;max-width:var(--max);margin:auto;padding:0 24px}
+.brand{display:flex;align-items:center;gap:11px;text-decoration:none;font-size:20px;font-weight:750}.brand img{width:38px;height:38px}
+.navlinks{display:flex;align-items:center;gap:24px}.navlinks a{text-decoration:none;color:var(--muted);font-size:14px}.button{display:inline-flex;align-items:center;justify-content:center;padding:12px 18px;border-radius:10px;text-decoration:none;font-weight:700;border:1px solid var(--line)}.button.primary{background:var(--green);color:#052016;border-color:var(--green)}.button:hover{transform:translateY(-1px)}
+main{overflow:hidden}.hero{max-width:var(--max);margin:auto;padding:100px 24px 80px;display:grid;grid-template-columns:1.15fr .85fr;gap:64px;align-items:center}
+.eyebrow{display:inline-flex;color:var(--green2);font-size:13px;font-weight:750;letter-spacing:.07em;text-transform:uppercase;border:1px solid #285a46;background:#0b2119;padding:7px 10px;border-radius:999px}
+h1{font-size:clamp(44px,6.2vw,76px);line-height:1.01;letter-spacing:-.055em;margin:22px 0}.lead{font-size:20px;color:var(--muted);max-width:660px}.actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:30px}.micro{font-size:13px;color:#789087;margin-top:16px}
+.product{background:linear-gradient(145deg,#12231c,#09130f);border:1px solid var(--line);border-radius:22px;padding:18px;box-shadow:0 45px 100px #0008;transform:rotate(1deg)}
+.window{background:#07100d;border:1px solid #294237;border-radius:14px;overflow:hidden}.windowbar{padding:12px 14px;border-bottom:1px solid var(--line);font-size:12px;color:var(--muted)}.screen{padding:22px}.score{font-size:42px;font-weight:760;color:var(--green)}.screen small{color:var(--muted)}.finding{margin-top:18px;border:1px solid var(--line);border-radius:11px;padding:14px}.tag{font-size:11px;background:#193a2d;color:var(--green2);padding:4px 7px;border-radius:99px}.finding p{color:var(--muted);font-size:13px;margin-bottom:0}
+section{padding:88px 24px}.inner{max-width:var(--max);margin:auto}.sectionhead{max-width:720px;margin-bottom:42px}.sectionhead h2{font-size:clamp(32px,4vw,48px);line-height:1.08;letter-spacing:-.04em;margin:0 0 14px}.sectionhead p{color:var(--muted);font-size:18px}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:24px}.card h3{font-size:18px;margin:12px 0 8px}.card p{color:var(--muted);margin:0}.num{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;background:#16382b;color:var(--green2);font-weight:800}
+.contrast{background:#0a1511;border-block:1px solid var(--line)}.boundary{display:grid;grid-template-columns:1fr 1fr;gap:18px}.yes,.no{border-radius:16px;padding:26px}.yes{background:#0c2119;border:1px solid #225a44}.no{background:#171513;border:1px solid #40382f}.boundary h3{margin-top:0}.boundary ul{padding-left:20px;color:var(--muted)}.boundary li{margin:9px 0}
+.pricebox{display:grid;grid-template-columns:1fr auto;gap:40px;align-items:center;background:linear-gradient(135deg,#10261d,#0a1712);border:1px solid #286048;border-radius:22px;padding:42px}.price{font-size:58px;font-weight:800;letter-spacing:-.05em}.price span{font-size:16px;color:var(--muted);letter-spacing:0}.checks{display:grid;grid-template-columns:1fr 1fr;gap:9px;color:var(--muted);margin-top:22px}.checks div:before{content:"✓";color:var(--green);font-weight:800;margin-right:8px}
+details{border-top:1px solid var(--line);padding:19px 0}summary{cursor:pointer;font-weight:700}details p{color:var(--muted);max-width:780px}
+footer{border-top:1px solid var(--line);padding:38px 24px;color:var(--muted);font-size:13px}.foot{max-width:var(--max);margin:auto;display:flex;justify-content:space-between;gap:24px;flex-wrap:wrap}.footlinks{display:flex;gap:18px;flex-wrap:wrap}
+@media(max-width:800px){.navlinks a:not(.button){display:none}.hero{grid-template-columns:1fr;padding-top:62px}.product{transform:none}.grid{grid-template-columns:1fr}.boundary,.pricebox{grid-template-columns:1fr}.checks{grid-template-columns:1fr}.price{font-size:48px}}
+</style>
+</head>
+<body>
+<nav>
+  <a class="brand" href="/"><img src="/brand/aegis-mark.svg" alt="">Aegis</a>
+  <div class="navlinks"><a href="#how">How it works</a><a href="#boundaries">Boundaries</a><a href="#pricing">Pricing</a><a class="button" href="/account">Customer sign in</a></div>
+</nav>
+<main>
+<div class="hero">
+  <div>
+    <span class="eyebrow">Passive public-information monitoring</span>
+    <h1>Know what the public internet shows about your business.</h1>
+    <p class="lead">Aegis watches customer-approved internet assets, records public changes and turns the evidence into clear reports your IT team can verify.</p>
+    <div class="actions"><a class="button primary" href="/account?register=1">Get the founding licence</a><a class="button" href="/chat">Ask Harold</a></div>
+    <p class="micro">£995 for 12 months · up to 5 users · up to 25 approved assets</p>
+  </div>
+  <div class="product" aria-label="Example Aegis report interface">
+    <div class="window"><div class="windowbar">Aegis · monthly overview</div><div class="screen">
+      <small>PUBLIC OBSERVATIONS THIS PERIOD</small><div class="score">04</div>
+      <div class="finding"><span class="tag">Potential indicator</span><h3>TLS metadata changed</h3><p>Observation: certificate expiry and issuer changed. This is not evidence of compromise. IT verification required.</p></div>
+      <div class="finding"><span class="tag">Informational</span><h3>Email security recorded</h3><p>Public SPF and DMARC records preserved with source and detection date.</p></div>
+    </div></div>
+  </div>
+</div>
+<section id="how" class="contrast"><div class="inner">
+  <div class="sectionhead"><h2>A simple monthly security habit.</h2><p>No software agents, internal access or disruption to your systems.</p></div>
+  <div class="grid">
+    <div class="card"><div class="num">1</div><h3>Approve your assets</h3><p>Add only domains your organisation owns or is authorised to manage. Aegis records who confirmed authority and when.</p></div>
+    <div class="card"><div class="num">2</div><h3>Observe public information</h3><p>Aegis collects public DNS, certificate, TLS, email-security and root HTTP-header information conservatively.</p></div>
+    <div class="card"><div class="num">3</div><h3>Verify what changed</h3><p>Reports separate evidence from inference and explain what your IT team should verify before taking action.</p></div>
+  </div>
+</div></section>
+<section id="boundaries"><div class="inner">
+  <div class="sectionhead"><h2>Useful because the boundaries are clear.</h2><p>Aegis is monitoring software—not a penetration test, guarantee or substitute for professional incident response.</p></div>
+  <div class="boundary">
+    <div class="yes"><h3>Aegis does</h3><ul><li>Use passive, publicly available information</li><li>Stay inside the customer-approved asset list</li><li>Preserve evidence, sources and detection dates</li><li>Flag potential indicators for IT verification</li><li>Stop on instability or rate limiting</li></ul></div>
+    <div class="no"><h3>Aegis never does</h3><ul><li>Log in or attempt authentication</li><li>Submit forms or send exploit payloads</li><li>Guess accounts, identifiers or directories</li><li>Access protected or private data</li><li>Claim that exploitation occurred</li></ul></div>
+  </div>
+</div></section>
+<section id="pricing" class="contrast"><div class="inner">
+  <div class="pricebox"><div><span class="eyebrow">Founding licence</span><div class="price">£995 <span>/ 12 months</span></div><div class="checks"><div>Up to five authorised users</div><div>Up to 25 approved assets</div><div>Monthly web reports</div><div>Important-change alerts</div><div>Customer-controlled scope</div><div>No hidden monthly charges</div></div></div><a class="button primary" href="/account?register=1">Create your workspace</a></div>
+</div></section>
+<section><div class="inner"><div class="sectionhead"><h2>Questions, answered plainly.</h2></div>
+  <details><summary>Does Aegis test or exploit our systems?</summary><p>No. Aegis is limited to passive public-information monitoring of assets you approve. It does not authenticate, submit forms, exploit vulnerabilities or access protected information.</p></details>
+  <details><summary>Does an alert mean we have been breached?</summary><p>No. Reports label observations and potential indicators carefully. A change or advisory match requires verification by your IT team and is not evidence of exploitation or compromise.</p></details>
+  <details><summary>Can we remove an asset?</summary><p>Yes. Customers control the approved list. Removing an asset stops future monitoring of it.</p></details>
+  <details><summary>Do I need a sales call?</summary><p>No. The service, limitations and fixed founding price are explained here. Harold can answer product questions by text, and the customer journey is designed for self-service.</p></details>
+</div></section>
+</main>
+<footer><div class="foot"><div>Aegis is software operated by Jamie Mahon, a UK sole trader. It is not a penetration-testing or incident-response service.</div><div class="footlinks"><a href="/legal/privacy">Privacy</a><a href="/legal/terms">Subscription terms</a><a href="/legal/acceptable-use">Acceptable use</a><a href="/chat">Harold</a></div></div></footer>
+</body>
+</html>

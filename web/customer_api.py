@@ -53,7 +53,7 @@ class AgreementBody(BaseModel):
     policy_text_hash: str = Field(min_length=64, max_length=64)
 
 
-def build_customer_router(session_factory) -> APIRouter:
+def build_customer_router(session_factory, account_mailer=None) -> APIRouter:
     router = APIRouter(prefix="/api/account", tags=["customer-account"])
     login_throttle = LoginThrottle(attempts=5, window_seconds=15 * 60)
 
@@ -98,7 +98,14 @@ def build_customer_router(session_factory) -> APIRouter:
             except Exception as error:
                 session.rollback()
                 return error_response(error)
-        payload = {"ok": True, "verification_required": True}
+        delivered = bool(
+            account_mailer and account_mailer.send_verification(user.email, token)
+        )
+        payload = {
+            "ok": True,
+            "verification_required": True,
+            "verification_email_sent": delivered,
+        }
         if os.environ.get("AEGIS_DEV_EXPOSE_TOKENS") == "1":
             payload["verification_token"] = token
         return JSONResponse(payload, status_code=201)
@@ -285,6 +292,8 @@ def build_customer_router(session_factory) -> APIRouter:
                 token = None
                 session.rollback()
         payload = {"ok": True}
+        if token and account_mailer:
+            account_mailer.send_password_reset(body.email.strip().lower(), token)
         if token and os.environ.get("AEGIS_DEV_EXPOSE_TOKENS") == "1":
             payload["reset_token"] = token
         return payload

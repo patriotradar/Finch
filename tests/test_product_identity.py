@@ -11,6 +11,8 @@ def test_public_product_files_have_no_kane_or_voice_clone_identity():
     paths = [
         ROOT / "web" / "admin.html",
         ROOT / "web" / "chat.html",
+        ROOT / "web" / "landing.html",
+        ROOT / "web" / "account.html",
         ROOT / "sales" / "conversation.py",
         ROOT / "core" / "persona.py",
         ROOT / "config.yaml",
@@ -19,6 +21,27 @@ def test_public_product_files_have_no_kane_or_voice_clone_identity():
     assert "kane" not in combined
     assert "michael_emerson" not in combined
     assert "voice clone" not in combined
+
+
+def test_landing_page_has_required_factual_sales_content():
+    page = (ROOT / "web" / "landing.html").read_text(encoding="utf-8")
+    required = [
+        "£995", "12 months", "up to 5 users", "up to 25 approved assets",
+        "sole trader", "not evidence of compromise", "Customer sign in",
+        "/legal/privacy", "/legal/terms", "/legal/acceptable-use",
+    ]
+    for text in required:
+        assert text in page
+    forbidden = ["trusted by", "testimonial", "guaranteed protection", "penetration test included"]
+    assert all(text not in page.lower() for text in forbidden)
+
+
+def test_service_worker_does_not_cache_private_interfaces():
+    worker = (ROOT / "web" / "sw.js").read_text(encoding="utf-8")
+    install_cache = worker.split('self.addEventListener("fetch"', 1)[0]
+    assert '"/admin"' not in install_cache
+    assert '"/account"' not in install_cache
+    assert 'startsWith("/api/")' in worker
 
 
 def test_outreach_is_signed_by_harold_without_fake_finding(tmp_path):
@@ -32,4 +55,3 @@ def test_outreach_is_signed_by_harold_without_fake_finding(tmp_path):
     assert "Harold" in generic["body"]
     assert "technical co-founder" not in generic["body"].lower()
     assert "came up in our scans" not in generic["body"].lower()
-
