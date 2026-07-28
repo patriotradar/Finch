@@ -4,16 +4,22 @@ from __future__ import annotations
 
 import hmac
 import os
+from io import BytesIO
 
 from fastapi import APIRouter, Cookie, Header, Request
 from fastapi.responses import JSONResponse
+from fastapi.responses import HTMLResponse, StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
 from core.accounts import AccountService
-from core.models import AgreementAcceptance, ApprovedAsset, AssetStatus, Workspace, WorkspaceUser
+from core.models import (
+    ApprovedAsset, AssetStatus, CustomerAlert, Report, Workspace,
+)
 from core.security import LoginThrottle
 from core.tenant import require_workspace_user
+from asm.report_pdf import build_report_pdf
+from asm.report_html import render_report_html
 
 
 CUSTOMER_COOKIE = "aegis_customer_session"
@@ -66,12 +72,15 @@ def build_customer_router(session_factory, account_mailer=None) -> APIRouter:
             "csrf_validation_failed", "authority_confirmation_required",
             "invalid_domain", "asset_limit_reached", "user_limit_reached",
             "invalid_policy_hash", "asset_not_found", "workspace_access_denied",
+            "alert_not_found", "report_not_found",
         }
         if code not in allowed:
             return JSONResponse({"error": "request_failed"}, status_code=500)
         status = 401 if isinstance(error, PermissionError) else 400
         if code in {"email_already_registered"}:
             status = 409
+        if code in {"asset_not_found", "alert_not_found", "report_not_found"}:
+            status = 404
         return JSONResponse({"error": code}, status_code=status)
 
     def customer_context(raw_token: str | None, csrf: str | None = None, require_csrf: bool = False):
@@ -281,6 +290,155 @@ def build_customer_router(session_factory, account_mailer=None) -> APIRouter:
                 db.close()
         except Exception as error:
             return error_response(error)
+
+    @router.get("/alerts")
+    def list_alerts(aegis_customer_session: str | None = Cookie(default=None)):
+        try:
+            db, _, active, _ = customer_context(aegis_customer_session)
+            try:
+                alerts = db.scalars(
+                    select(CustomerAlert).where(
+                        CustomerAlert.workspace_id == active.workspace_id
+                    ).order_by(CustomerAlert.created_at.desc()).limit(100)
+                ).all()
+                return {"alerts": [
+                    {
+                        "id": alert.id,
+                        "title": alert.title,
+                        "detail": alert.detail,
+                        "important": alert.important,
+                        "created_at": alert.created_at.isoformat(),
+                        "acknowledged": alert.acknowledged_at is not None,
+                    }
+                    for alert in alerts
+                ]}
+            finally:
+                db.close()
+        except Exception as error:
+            return error_response(error)
+
+    @router.post("/alerts/{alert_id}/acknowledge")
+    def acknowledge_alert(
+        alert_id: str,
+        aegis_customer_session: str | None = Cookie(default=None),
+        x_csrf_token: str | None = Header(default=None),
+    ):
+        try:
+            db, _, active, _ = customer_context(
+                aegis_customer_session, x_csrf_token, require_csrf=True
+            )
+            try:
+                alert = db.scalar(select(CustomerAlert).where(
+                    CustomerAlert.id == alert_id,
+                    CustomerAlert.workspace_id == active.workspace_id,
+                ))
+                if alert is None:
+                    raise LookupError("alert_not_found")
+                from core.models import utcnow
+                alert.acknowledged_at = utcnow()
+                db.commit()
+                return {"ok": True}
+            finally:
+                db.close()
+        except Exception as error:
+            return error_response(error)
+
+    @router.get("/reports")
+    def list_reports(aegis_customer_session: str | None = Cookie(default=None)):
+        try:
+            db, _, active, _ = customer_context(aegis_customer_session)
+            try:
+                reports = db.scalars(
+                    select(Report).where(
+                        Report.workspace_id == active.workspace_id,
+                        Report.status == "ready",
+                    ).order_by(Report.period_end.desc()).limit(36)
+                ).all()
+                return {"reports": [
+                    {
+                        "id": report.id,
+                        "period_start": report.period_start.isoformat(),
+                        "period_end": report.period_end.isoformat(),
+                        "status": report.status,
+                        "summary": (report.web_payload or {}).get("summary", {}),
+                    }
+                    for report in reports
+                ]}
+            finally:
+                db.close()
+        except Exception as error:
+            return error_response(error)
+
+    @router.get("/reports/{report_id}")
+    def get_report(
+        report_id: str,
+        aegis_customer_session: str | None = Cookie(default=None),
+    ):
+        try:
+            db, _, active, _ = customer_context(aegis_customer_session)
+            try:
+                report = db.scalar(select(Report).where(
+                    Report.id == report_id,
+                    Report.workspace_id == active.workspace_id,
+                    Report.status == "ready",
+                ))
+                if report is None:
+                    raise LookupError("report_not_found")
+                return {"id": report.id, "report": report.web_payload}
+            finally:
+                db.close()
+        except Exception as error:
+            return error_response(error)
+
+    @router.get("/reports/{report_id}/pdf")
+    def download_report_pdf(
+        report_id: str,
+        aegis_customer_session: str | None = Cookie(default=None),
+    ):
+        try:
+            db, _, active, _ = customer_context(aegis_customer_session)
+            try:
+                report = db.scalar(select(Report).where(
+                    Report.id == report_id,
+                    Report.workspace_id == active.workspace_id,
+                    Report.status == "ready",
+                ))
+                if report is None:
+                    raise LookupError("report_not_found")
+                workspace = db.get(Workspace, active.workspace_id)
+                pdf = build_report_pdf(workspace.company_name, report.web_payload)
+            finally:
+                db.close()
+        except Exception as error:
+            return error_response(error)
+        return StreamingResponse(
+            BytesIO(pdf),
+            media_type="application/pdf",
+            headers={"Content-Disposition": f'attachment; filename="aegis-report-{report_id}.pdf"'},
+        )
+
+    @router.get("/reports/{report_id}/view", response_class=HTMLResponse)
+    def view_report(
+        report_id: str,
+        aegis_customer_session: str | None = Cookie(default=None),
+    ):
+        try:
+            db, _, active, _ = customer_context(aegis_customer_session)
+            try:
+                report = db.scalar(select(Report).where(
+                    Report.id == report_id,
+                    Report.workspace_id == active.workspace_id,
+                    Report.status == "ready",
+                ))
+                if report is None:
+                    raise LookupError("report_not_found")
+                workspace = db.get(Workspace, active.workspace_id)
+                html = render_report_html(workspace.company_name, report.web_payload)
+            finally:
+                db.close()
+        except Exception as error:
+            return error_response(error)
+        return HTMLResponse(html)
 
     @router.post("/password-reset/request")
     def request_password_reset(body: PasswordResetRequest):

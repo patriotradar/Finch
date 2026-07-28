@@ -9,3 +9,5 @@ htmlcov/
 !.env.example
 data/
 smtp_config.json
+tmp/
+output/
