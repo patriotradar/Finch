@@ -200,7 +200,7 @@ def reply(
                 continue
             if role in ("user", "partner", "you"):
                 messages.append({"role": "user", "content": content[:900]})
-            elif role in ("finch", "assistant", "kane", "harold"):
+            elif role in ("finch", "assistant", "harold"):
                 messages.append({"role": "assistant", "content": content[:900]})
         if not messages or messages[-1].get("role") != "user":
             messages.append({"role": "user", "content": message[:900]})

@@ -136,8 +136,7 @@ docs_engine = FinchDocs(docs_dir=str(_DATA_ROOT / "documents"))
 mail_store = MailStore(str(_DATA_ROOT))
 lead_pipeline = LeadPipeline(db_session_factory)
 
-# Do NOT seed fake BigBank clients on cloud — empty pipeline is more honest
-# than a prototype $1,970 MRR. Real clients arrive via won deal/handoff.
+# Start with honest empty records. Real clients arrive through verified purchases.
 try:
     Path(crm.data_dir).mkdir(parents=True, exist_ok=True)
     crm._load()

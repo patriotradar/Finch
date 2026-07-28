@@ -1,15 +1,11 @@
 #!/usr/bin/env python3
-"""
-Aegis — Autonomous AI Co-Founder for Attack Surface Management
-==============================================================
-Harold lives here. He monitors, supports customers,
-and talks to you like a partner — not a tool.
+"""Local command-line runner for the private Aegis assistant.
 
 Usage:
   python main.py              # Terminal chat mode
   python main.py --voice      # Voice interaction mode
-  python main.py --daemon     # Background daemon with Telegram
-  python main.py --once       # Run autonomous cycle once
+  python main.py --daemon     # Optional local listener integrations
+  python main.py --once       # Refresh local business state once
 """
 
 import argparse
@@ -20,7 +16,7 @@ import time
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Finch — Autonomous AI Co-Founder")
+    parser = argparse.ArgumentParser(description="Aegis private assistant")
     parser.add_argument("--voice", action="store_true", help="Voice interaction mode")
     parser.add_argument("--daemon", action="store_true", help="Run as background daemon")
     parser.add_argument("--once", action="store_true", help="Run one autonomous cycle and exit")
@@ -57,18 +53,18 @@ def main():
         else:
             print(f"[{daemon.name}] Telegram skipped — no TELEGRAM_BOT_TOKEN set.")
 
-        # Schedule autonomous cycles
+        # Schedule local state refreshes. This does not discover or contact leads.
         from apscheduler.schedulers.background import BackgroundScheduler
         scheduler = BackgroundScheduler()
         scheduler.add_job(
             daemon.autonomous_cycle,
             "interval",
             hours=6,
-            id="autonomous_cycle",
+            id="state_refresh",
         )
         scheduler.start()
 
-        print(f"\n[{daemon.name}] Daemon running. Autonomous cycles every 6 hours.")
+        print(f"\n[{daemon.name}] Local listener running. State refresh every 6 hours.")
         print(f"[{daemon.name}] Web dashboard: python web/chat_server.py")
         print(f"[{daemon.name}] {daemon.proactive_message()}")
 

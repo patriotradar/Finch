@@ -69,7 +69,6 @@ class CRM:
             "total_deals": len(self.deals),
             "active_clients": len(self.clients),
             "annual_revenue": annual_revenue,
-            "mrr": 0,
         }
 
     def get_active_clients(self):

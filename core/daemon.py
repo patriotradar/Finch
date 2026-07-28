@@ -1,6 +1,7 @@
-"""
-Finch Daemon — the always-running process that makes Finch feel alive.
-Handles: memory, LLM, scheduling, autonomous actions, and conversation.
+"""Legacy local Harold runner retained for compatibility.
+
+Production work is performed by the database-backed web services. This runner
+does not discover targets or send outreach automatically.
 """
 
 import datetime
@@ -71,11 +72,15 @@ class FinchDaemon:
         path = "./data/business_state.json"
         if os.path.exists(path):
             return json.load(open(path))
-        return {"founded_date": self.founded_date.isoformat(), "active_clients": 0, "mrr": 0}
+        return {
+            "founded_date": self.founded_date.isoformat(),
+            "active_clients": 0,
+            "annual_revenue": 0,
+        }
 
     def _save_business_state(self):
         self.business_state["active_clients"] = len(self.crm.get_active_clients())
-        self.business_state["mrr"] = self.crm.pipeline_summary()["mrr"]
+        self.business_state["annual_revenue"] = self.crm.pipeline_summary()["annual_revenue"]
         json.dump(self.business_state, open("./data/business_state.json", "w"), indent=2, default=str)
 
     def think(self, user_input=None, system_override=None):
@@ -141,7 +146,11 @@ class FinchDaemon:
         if any(w in user_input.lower() for w in ["lead", "client", "price", "deal", "outreach", "email"]):
             pipeline = self.crm.pipeline_summary()
             if pipeline["total_deals"] > 0:
-                reply += f"\n\n(Current pipeline: {pipeline['active_clients']} active clients, ${pipeline['mrr']} MRR, {pipeline['total_deals']} total deals)"
+                reply += (
+                    f"\n\n(Current pipeline: {pipeline['active_clients']} active clients, "
+                    f"£{pipeline['annual_revenue']} annual licence revenue, "
+                    f"{pipeline['total_deals']} total deals)"
+                )
 
         self.conversation_active = False
         return reply
@@ -154,7 +163,7 @@ class FinchDaemon:
             summary = self.crm.pipeline_summary()
             return (
                 f"Active clients: {summary['active_clients']}\n"
-                f"MRR: ${summary['mrr']}\n"
+                f"Annual licence revenue: £{summary['annual_revenue']}\n"
                 f"Pipeline: {summary['stages']}\n"
                 f"Memories: {self.memory.count()}"
             )
@@ -165,7 +174,10 @@ class FinchDaemon:
 
         if cmd == "/pipeline":
             summary = self.crm.pipeline_summary()
-            msg = f"📊 Pipeline — ${summary['mrr']} MRR, {summary['active_clients']} active\n"
+            msg = (
+                f"📊 Pipeline — £{summary['annual_revenue']} annual licence revenue, "
+                f"{summary['active_clients']} active\n"
+            )
             for stage, count in summary["stages"].items():
                 msg += f"  {stage}: {count}\n"
             return msg
@@ -216,21 +228,8 @@ class FinchDaemon:
             print(f"[{self.name}] Email listener not available: {e}")
 
     def autonomous_cycle(self):
-        """Background tasks Finch runs on his own — lead gen, enrichment, outreach."""
-        print(f"[{self.name}] Running autonomous cycle...")
-
-        # Enrich leads with vulnerability data
-        self.lead_gen.enrich_all()
-
-        # Process outreach queue
-        leads = self.lead_gen.get_ready_for_outreach()
-        if leads:
-            actions = self.outreach.process_outreach_queue(leads)
-            for action in actions:
-                print(f"[{self.name}] {action}")
-                self.memory.remember(action, memory_type="action")
-
-        # Update business state
+        """Refresh local business state without discovering or contacting anyone."""
+        print(f"[{self.name}] Refreshing local business state...")
         self._save_business_state()
 
     def proactive_message(self):
@@ -241,8 +240,11 @@ class FinchDaemon:
         if pipeline["total_deals"] == 0:
             return "I'm here. No deals in the pipeline yet — I'd like to start finding leads when you're ready."
 
-        if pipeline["active_clients"] > 0 and pipeline["mrr"] > 0:
-            return f"We're at ${pipeline['mrr']}/month with {pipeline['active_clients']} clients. Not bad for a machine and a human."
+        if pipeline["active_clients"] > 0 and pipeline["annual_revenue"] > 0:
+            return (
+                f"We're at £{pipeline['annual_revenue']} in annual licence revenue "
+                f"with {pipeline['active_clients']} clients."
+            )
 
         leads = self.lead_gen.get_stats()
         if leads["total"] > 0 and pipeline["total_deals"] == 0:
@@ -281,7 +283,7 @@ class FinchDaemon:
     def run_terminal_loop(self):
         """Text-based terminal interaction."""
         print(f"\n{'='*60}")
-        print(f"  {self.name} — Autonomous Security AI")
+        print(f"  {self.name} — Private Aegis assistant")
         print(f"  Type /help for commands, Ctrl+C to exit")
         print(f"{'='*60}\n")
         print(f"{self.name}: {greeting_variations()}\n")
