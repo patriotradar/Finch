@@ -1,8 +1,7 @@
-Finch is live at:
-https://0f810d66aa0616d2-136-66-86-165.serveousercontent.com
+Aegis production URL: record after the existing live deployment has been inspected.
 
-Prospect chat:  /
-Admin dashboard: /admin
+Production remains connected to `main`.
+Development work remains on `upgrade/aegis-production`.
 
-NOTE: This is a temporary serveo tunnel — it will die when the sandbox expires.
-For permanent hosting, see DEPLOY_CLOUD.md (Koyeb free tier, 10 min setup).
+Do not replace this file with a temporary tunnel URL and do not deploy this branch
+without explicit owner approval.

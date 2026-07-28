@@ -1,32 +1,20 @@
-Finch Email Setup — 2 Minutes
-===============================
+Aegis email configuration
 
-You need a Gmail address. That's it. Here's the fastest way:
+Use a dedicated business mailbox. Store credentials only as protected deployment
+environment variables:
 
-Option A: Create a dedicated Gmail for Finch (recommended)
-  1. Go to gmail.com → Create account
-  2. Pick a name like "finch.yourcompany@gmail.com"
-  3. This keeps your personal inbox clean, prospects see a pro address
+FINCH_EMAIL
+FINCH_EMAIL_PASSWORD
+FINCH_SMTP_HOST
+FINCH_SMTP_PORT
+FINCH_IMAP_HOST
+FINCH_IMAP_PORT
 
-Option B: Use your existing Gmail
-  Already have one? Use it. No new account needed.
+Preserve the existing working SMTP values. Never commit credentials to this
+repository. After configuring a private preview, use the owner dashboard's
+connection test, send a message to an address you control, verify delivery and
+reply handling, then check that the activity log records the event.
 
-Then — ONE STEP:
-  1. Go to myaccount.google.com/apppasswords
-  2. Select "Mail" → "Other" → name it "Finch"
-  3. Copy the 16-character password Google gives you
-
-Now run these two commands:
-  export FINCH_EMAIL="your-email@gmail.com"
-  export FINCH_EMAIL_PASSWORD="the-16-char-app-password"
-
-Then restart Finch:
-  cd /home/user/finch && python3 web/chat_server.py
-
-That's it. Finch now:
-  - Sends cold outreach emails from your address
-  - Monitors your inbox for replies
-  - Responds autonomously to prospects who reply
-
-NO credit card. NO API keys. NO third-party services.
-Just your Gmail and a 16-character app password.
+Every outreach message must include the one-click opt-out URL generated from
+FINCH_OPTOUT_SECRET. Suppression is permanent unless the recipient explicitly
+requests otherwise.

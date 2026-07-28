@@ -1,14 +1,17 @@
-# One-click deploy (Vercel)
+# Aegis Vercel deployment
 
-1. https://vercel.com/new → Import this `finch` repo
-2. Environment Variables (add all three before Deploy):
+Do not connect this branch to production. Create a private Vercel preview from
+`upgrade/aegis-production` and keep the production project on `main`.
 
-```
-GROQ_API_KEY=your_gsk_key
-FINCH_MEMORY_BACKEND=json
-FINCH_ADMIN_PASSWORD=pick-a-password
-```
+Before preview testing:
 
-3. Click **Deploy**
+1. Create production-grade PostgreSQL and set `DATABASE_URL`.
+2. Run `alembic upgrade head` against that database.
+3. Add all protected variables listed in `.env.example`.
+4. Use PayPal Sandbox credentials and `PAYPAL_ENVIRONMENT=sandbox`.
+5. Preserve the tested `FINCH_*` SMTP values.
+6. complete both owner and customer journeys in the private preview.
 
-URL will be `https://finch-xxxx.vercel.app`
+Switch PayPal to live credentials and deploy production only after the owner has
+approved the preview, legal wording, payment provider and email provider. See
+`docs/PRODUCTION_RUNBOOK.md` for the full sequence and rollback procedure.

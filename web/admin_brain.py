@@ -37,8 +37,12 @@ def business_snapshot(crm, pending_handoffs, prospect_sessions, mail_store, memo
 
     client_bits = []
     for c in clients[:8]:
-        price = (c.get("price") or {}).get("monthly_price", 0)
-        client_bits.append(f"{c.get('company', '?')} <{c.get('contact_email', '')}> ${price}/mo")
+        price = (
+            (c.get("price") or {}).get("annual_price")
+            or (c.get("price") or {}).get("annual")
+            or 0
+        )
+        client_bits.append(f"{c.get('company', '?')} <{c.get('contact_email', '')}> £{price}/year")
     client_line = "; ".join(client_bits) if client_bits else "none yet — first paying client still ahead"
 
     mail = mail_store.summary() if mail_store else {}
@@ -63,12 +67,12 @@ def business_snapshot(crm, pending_handoffs, prospect_sessions, mail_store, memo
 
     handoff_bits = []
     for email, info in list((pending_handoffs or {}).items())[:5]:
-        handoff_bits.append(f"{info.get('company', '?')} <{email}> ${info.get('price', 0)}/mo")
+        handoff_bits.append(f"{info.get('company', '?')} <{email}> £{info.get('price', 0)}/year")
     hands = "; ".join(handoff_bits) if handoff_bits else "none"
 
     return (
         f"NOW: {datetime.now().strftime('%A %b %d, %Y %H:%M')}\n"
-        f"MRR: ${pipeline.get('mrr', 0)} | deals: {pipeline.get('total_deals', 0)} | "
+        f"Annual licence revenue: £{pipeline.get('annual_revenue', 0)} | deals: {pipeline.get('total_deals', 0)} | "
         f"active clients: {len(clients)}\n"
         f"Clients: {client_line}\n"
         f"Pipeline stages: {pipeline.get('stages', {})}\n"
@@ -97,7 +101,7 @@ WHO YOU ARE
 
 HOW TO TALK
 - ANSWER what your partner just said. Do not default to dumping CRM numbers.
-- Only recite pipeline/MRR/client roster when they ask about status, money, pipeline, or clients.
+- Only recite pipeline/revenue/client roster when they ask about status, money, pipeline, or clients.
 - For "hello", "can you talk", "how are you" — be a person. Brief check-in. Ask what they need. One dry observation is fine.
 - For strategy, product, pitches, pricing and outreach, propose a next move but do not make detrimental changes without permission.
 - For emotional/partner check-ins — be present, spare, real. "I'm glad." goes further than a paragraph.
@@ -235,9 +239,9 @@ def _offline_reply(message: str, snapshot: str) -> str:
             "I'm here. Fully. Not a dashboard — me.\n\n"
             "What's on your mind? Pipeline, a prospect, the email queue, or something that kept you up."
         )
-    if any(w in t for w in ("status", "pipeline", "mrr", "how are we", "numbers", "money")):
+    if any(w in t for w in ("status", "pipeline", "revenue", "how are we", "numbers", "money")):
         # Parse a couple lines from snapshot for offline status
-        lines = [ln for ln in snapshot.splitlines() if ln.startswith(("MRR", "Clients", "Mail", "Live"))][:4]
+        lines = [ln for ln in snapshot.splitlines() if ln.startswith(("Annual", "Clients", "Mail", "Live"))][:4]
         body = "\n".join(lines) if lines else snapshot[:400]
         return f"Quick picture:\n{body}\n\nWant the Emails tab or a specific deal?"
     if "email" in t or "outreach" in t or "inbox" in t:
@@ -297,7 +301,7 @@ def handle_command(
         return (
             f"{len(prospect_sessions or {})} live chat(s). "
             f"{len(pending_handoffs or {})} handoff(s). "
-            f"{len(clients)} client(s). MRR ${pipe.get('mrr', 0):,}.\n"
+            f"{len(clients)} client(s). Annual licence revenue £{pipe.get('annual_revenue', 0):,}.\n"
             f"Mail — inbox {mail.get('inbox', 0)} ({mail.get('unread', 0)} unread), "
             f"drafts {mail.get('drafts', 0)}, outbox {mail.get('outbox', 0)}, sent {mail.get('sent', 0)}.\n\n"
             f"Want me to dig into any of that?"

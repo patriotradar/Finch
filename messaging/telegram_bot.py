@@ -62,7 +62,7 @@ class FinchTelegram:
             return
         await update.message.reply_text(
             "I'm here. What do you need?\n\n"
-            "/status — Pipeline & MRR\n"
+            "/status — Pipeline and annual revenue\n"
             "/leads — Lead stats\n"
             "/pipeline — Deal pipeline\n"
             "/docs — Stored documents (contracts, invoices)\n"
@@ -76,7 +76,7 @@ class FinchTelegram:
         if self.daemon and hasattr(self.daemon, 'crm'):
             summary = self.daemon.crm.pipeline_summary()
             await update.message.reply_text(
-                f"💰 MRR: ${summary['mrr']:,}\n"
+                f"💰 Annual licence revenue: £{summary.get('annual_revenue', 0):,}\n"
                 f"👥 Active clients: {summary['active_clients']}\n"
                 f"📋 Deals in pipeline: {summary['total_deals']}\n"
                 f"📊 Stages: {summary['stages']}"
@@ -111,7 +111,7 @@ class FinchTelegram:
             if summary.get("deals"):
                 msg += "\nActive deals:\n"
                 for deal in summary["deals"][:5]:
-                    msg += f"  • {deal.get('client_name', 'Unknown')} — ${deal.get('monthly', 0):,}/mo ({deal.get('stage', '?')})\n"
+                    msg += f"  • {deal.get('client_name', 'Unknown')} — £{deal.get('annual', 0):,}/year ({deal.get('stage', '?')})\n"
             await update.message.reply_text(msg)
         else:
             await update.message.reply_text("CRM not connected.")

@@ -1,20 +1,36 @@
-# Finch — AI Co-Founder (ASM Sales PWA)
+# Aegis
 
-Phone-first sales + admin dashboard. AI brain on Groq. Hosts on Vercel.
+Aegis is customer-controlled, passive public-exposure monitoring software operated
+by a UK sole trader. Harold is its assistant.
 
-## Live
-- `/` — Prospect chat
-- `/admin` — Your dashboard
+The founding licence is **£995 for 12 months**, covering up to five authorised
+users and 25 customer-approved assets. Checkout uses PayPal.
 
-## Deploy (Vercel)
-1. Import this repo at https://vercel.com/new
-2. Add env vars from `.env.example`
-3. Deploy
+## Safety boundary
 
-## Local
+Aegis uses public certificate-transparency, DNS, TLS, HTTP-header and published
+advisory information. It does not authenticate, submit forms, brute-force paths,
+guess accounts, send exploit payloads or access protected data. Observations and
+potential indicators require qualified IT verification.
+
+## Local development
+
 ```bash
-export GROQ_API_KEY=gsk_...
-export FINCH_MEMORY_BACKEND=json
-pip install -r requirements.txt
-uvicorn web.chat_server:app --host 0.0.0.0 --port 8100
+python -m venv .venv
+.venv/bin/pip install -r requirements.txt
+.venv/bin/alembic upgrade head
+.venv/bin/uvicorn web.chat_server:app --reload
 ```
+
+Run tests with:
+
+```bash
+.venv/bin/pytest -q
+```
+
+Production configuration and release gates are documented in
+`docs/PRODUCTION_RUNBOOK.md` and `docs/LAUNCH_READINESS.md`. Production must use
+PostgreSQL; SQLite is for local development and automated tests only.
+
+Existing `FINCH_*` environment names remain supported internally for compatibility.
+No production deployment is authorised by repository changes.

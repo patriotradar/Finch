@@ -1,8 +1,4 @@
-"""
-Vercel entrypoint — smallest possible FastAPI shell.
-Finch is lazy-loaded on first real request so cold-start
-can't die before logging the error.
-"""
+"""Vercel entrypoint for Aegis."""
 from __future__ import annotations
 
 import os
@@ -49,9 +45,8 @@ def _load_finch():
 async def healthz():
     f = _load_finch()
     return {
-        "ok": True,
-        "finch": f is not None,
-        "error": _finch_error,
+        "ok": f is not None,
+        "service": "aegis",
     }
 
 
@@ -60,15 +55,10 @@ async def catch_all(full_path: str, request: Request):
     """Proxy every request into the real Finch FastAPI app."""
     fapp = _load_finch()
     if fapp is None:
-        body = (
-            "<html><body style='font-family:monospace;background:#0a0a0f;color:#f87171;padding:24px'>"
-            "<h1>Aegis failed to start</h1>"
-            f"<pre style='white-space:pre-wrap;color:#fecaca'>{_finch_error or 'unknown'}</pre>"
-            "</body></html>"
-        )
+        body = "<h1>Aegis is temporarily unavailable</h1><p>Please try again shortly.</p>"
         if full_path.startswith("api") or "application/json" in (request.headers.get("accept") or ""):
-            return JSONResponse({"error": "boot_failed", "trace": _finch_error}, status_code=500)
-        return HTMLResponse(body, status_code=500)
+            return JSONResponse({"error": "service_unavailable"}, status_code=503)
+        return HTMLResponse(body, status_code=503)
 
     # Forward into Finch ASGI app
     scope = dict(request.scope)
@@ -100,8 +90,10 @@ async def catch_all(full_path: str, request: Request):
     except Exception:
         tb = traceback.format_exc()
         print("[Finch] request failed:\n", tb)
+        if full_path.startswith("api") or "application/json" in (request.headers.get("accept") or ""):
+            return JSONResponse({"error": "internal_error"}, status_code=500)
         return HTMLResponse(
-            f"<pre style='background:#111;color:#f88;padding:16px'>{tb}</pre>",
+            "<h1>Something went wrong</h1><p>Please try again shortly.</p>",
             status_code=500,
         )
 

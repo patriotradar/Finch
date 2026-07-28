@@ -171,7 +171,7 @@ class MailStore:
             "folder": "drafts" if as_draft else "outbox",
             "direction": "outbound",
             "status": "draft" if as_draft else "queued",
-            "from": from_addr or self.smtp_credentials()["email"] or "kane@aegis.security",
+            "from": from_addr or self.smtp_credentials()["email"] or "harold@aegis.invalid",
             "to": (to or "").strip(),
             "subject": (subject or "").strip() or "(no subject)",
             "body": body or "",

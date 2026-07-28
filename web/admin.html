@@ -551,7 +551,7 @@
     if (sn) {
       const m = state.dash.mail || {};
       sn.textContent = (state.dash.brain_online ? 'Brain online · ' : 'Brain offline · ') +
-        (m.unread || 0) + ' unread · $' + Number(state.dash.mrr || 0).toLocaleString() + ' MRR';
+        (m.unread || 0) + ' unread · £' + Number(state.dash.annual_revenue || 0).toLocaleString() + ' annual revenue';
     }
     return state.dash;
   }
@@ -581,8 +581,8 @@
     const recent = d.recent_mail || [];
     const unread = recent.filter(m => m.status === 'unread');
     const clients = d.clients || [];
-    const realClients = clients.filter(c => !(c.demo || String(c.company || '').toLowerCase() === 'bigbank'));
-    const mrr = d.real_mrr != null ? d.real_mrr : (realClients.length ? d.mrr : 0);
+    const realClients = clients;
+    const annualRevenue = Number(d.annual_revenue || 0);
 
     let actions = '';
     unread.slice(0, 3).forEach(m => {
@@ -623,7 +623,7 @@
       '<div class="stat"><div class="k">Unread mail</div><div class="v ' + ((mail.unread||0)?'a':'g') + '">' + (mail.unread||0) + '</div><div class="h">' + (mail.inbox||0) + ' in inbox</div></div>' +
       '<div class="stat"><div class="k">Live chats</div><div class="v b">' + (d.active_conversations||0) + '</div><div class="h">Public site</div></div>' +
       '<div class="stat"><div class="k">Handoffs</div><div class="v a">' + handoffs.length + '</div><div class="h">Ready for you</div></div>' +
-      '<div class="stat"><div class="k">MRR</div><div class="v g">$' + Number(mrr||0).toLocaleString() + '</div><div class="h">' + realClients.length + ' paying client' + (realClients.length===1?'':'s') + '</div></div>' +
+      '<div class="stat"><div class="k">Annual revenue</div><div class="v g">£' + annualRevenue.toLocaleString() + '</div><div class="h">' + realClients.length + ' paying client' + (realClients.length===1?'':'s') + '</div></div>' +
       '</div>' +
       '<div class="card"><div class="sec-head"><h3>Needs you</h3><button type="button" class="link-btn" data-go="mail">All mail</button></div>' +
       actions + '</div>' +
@@ -1215,7 +1215,7 @@
     content.innerHTML = '<div class="skeleton"></div>';
     const d = await loadDash();
     const hands = d.pending_handoffs || [];
-    const clients = (d.clients || []).filter(c => !(c.demo || String(c.company||'').toLowerCase()==='bigbank'));
+    const clients = d.clients || [];
     const docs = d.documents || [];
 
     let html = '<div class="card"><div class="sec-head"><h3>Handoffs</h3></div>';
@@ -1227,7 +1227,7 @@
         html += '<div class="person" style="padding:10px 0;border-top:1px solid var(--line)">' +
           '<div class="av">✓</div><div><div class="name">' + esc(h.company || 'Prospect') + '</div>' +
           '<div class="sub">' + esc(h.email || '') + '</div></div>' +
-          '<div class="price">$' + Number(h.price||0).toLocaleString() + '</div></div>';
+          '<div class="price">£' + Number(h.price||0).toLocaleString() + '/year</div></div>';
       });
     }
     html += '</div>';
@@ -1235,13 +1235,13 @@
     html += '<div class="card"><div class="sec-head"><h3>Clients</h3></div>';
     if (!clients.length) {
       html += '<div class="empty" style="padding:18px"><h4 style="font-size:14px">No paid clients yet</h4>' +
-        'Close your first deal from the public chat or outbound mail. MRR will show here.</div>';
+        'Your first activated annual licence will show here.</div>';
     } else {
       clients.forEach(c => {
         html += '<div class="person" style="padding:10px 0;border-top:1px solid var(--line)">' +
           '<div class="av">' + esc(String(c.company||'?')[0]||'?') + '</div>' +
           '<div><div class="name">' + esc(c.company) + '</div><div class="sub">' + esc(c.email||'') + '</div></div>' +
-          '<div class="price">$' + Number(c.price||0).toLocaleString() + '<span style="color:var(--dim);font-weight:500">/mo</span></div></div>';
+          '<div class="price">£' + Number(c.price||0).toLocaleString() + '<span style="color:var(--dim);font-weight:500">/year</span></div></div>';
       });
     }
     html += '</div>';

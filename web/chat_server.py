@@ -544,14 +544,10 @@ async def admin_dashboard():
     except Exception:
         brain_ok = False
 
-    def _is_demo_client(c):
-        if c.get("demo") or "demo" in str((c.get("history") or [{}])[-1].get("note", "")).lower():
-            return True
-        name = str(c.get("company") or "").strip().lower()
-        return name in ("bigbank", "demo", "acme demo")
-
-    real_clients = [c for c in clients if not _is_demo_client(c)]
-    real_mrr = sum(int(((c.get("price") or {}).get("monthly_price") or 0)) for c in real_clients)
+    annual_revenue = sum(
+        int((c.get("price") or {}).get("annual_price") or (c.get("price") or {}).get("annual") or 0)
+        for c in clients
+    )
 
     return JSONResponse({
         "pending_handoffs": handoffs,
@@ -561,9 +557,8 @@ async def admin_dashboard():
         "documents": [{"id": d["id"], "name": d["original_name"], "tags": d.get("tags", [])} for d in docs],
         "active_conversations": len(prospect_sessions),
         "memory_count": memory.count() if memory else 0,
-        "active_clients": len(real_clients),
-        "mrr": real_mrr,
-        "real_mrr": real_mrr,
+        "active_clients": len(clients),
+        "annual_revenue": annual_revenue,
         "total_deals": pipeline.get("total_deals", 0),
         "brain_online": brain_ok,
         "leads": lead_pipeline.summary(),
@@ -572,9 +567,12 @@ async def admin_dashboard():
             {
                 "company": c.get("company"),
                 "email": c.get("contact_email"),
-                "price": (c.get("price") or {}).get("monthly_price", 0),
+                "price": (
+                    (c.get("price") or {}).get("annual_price")
+                    or (c.get("price") or {}).get("annual")
+                    or 0
+                ),
                 "status": c.get("status"),
-                "demo": _is_demo_client(c),
             }
             for c in clients
         ],
