@@ -161,7 +161,7 @@ class FinchDaemon:
 
         if cmd == "/leads":
             stats = self.lead_gen.get_stats()
-            return f"Leads: {stats['total']} total, {stats['with_vulnerabilities']} with findings. Stages: {stats['stages']}"
+            return f"Leads: {stats['total']} total, {stats['with_public_signals']} with sourced public signals. Stages: {stats['stages']}"
 
         if cmd == "/pipeline":
             summary = self.crm.pipeline_summary()
@@ -175,20 +175,10 @@ class FinchDaemon:
                 "/status — Business overview\n"
                 "/leads — Lead statistics\n"
                 "/pipeline — Deal pipeline\n"
-                "/scan <domain> — Quick security scan\n"
                 "/price — Get pricing for a lead\n"
                 "/outreach — Process outreach queue\n"
                 "/memory — Recent memory count\n"
             )
-
-        if cmd.startswith("/scan "):
-            domain = cmd.replace("/scan ", "").strip()
-            findings = self.lead_gen.scan_for_vulnerabilities(domain)
-            if findings:
-                return f"Scanned {domain}: {len(findings)} findings.\n" + "\n".join(
-                    str(f) for f in findings[:5]
-                )
-            return f"No immediate findings on {domain}."
 
         if cmd.startswith("/price "):
             parts = cmd.replace("/price ", "").split(",")
@@ -256,7 +246,11 @@ class FinchDaemon:
 
         leads = self.lead_gen.get_stats()
         if leads["total"] > 0 and pipeline["total_deals"] == 0:
-            return f"I've found {leads['total']} potential leads. {leads['with_vulnerabilities']} have security gaps. Ready to start outreach?"
+            return (
+                f"I've recorded {leads['total']} potential leads. "
+                f"{leads['with_public_signals']} have sourced public security-interest signals. "
+                "Ready to review the outreach queue?"
+            )
 
         return proactive_checkins()
 

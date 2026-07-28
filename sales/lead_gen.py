@@ -1,176 +1,120 @@
-"""
-Lead generation engine — Finch autonomously finds companies
-with vulnerable attack surfaces and enriches them for outreach.
-"""
+"""Public-signal-only lead discovery for ethical Aegis outreach."""
 
+from __future__ import annotations
+
+import hashlib
 import json
 import os
-import subprocess
-import re
-import requests
-from datetime import datetime
+from datetime import datetime, timezone
+from urllib.parse import urlparse
+
+
+SECURITY_TERMS = {
+    "cyber security", "cybersecurity", "information security", "data security",
+    "security certification", "iso 27001", "cyber essentials", "security hiring",
+    "security engineer", "security manager", "data protection",
+}
+ELIGIBLE_COMPANY_TYPES = {"limited_company", "plc", "corporate_body"}
 
 
 class LeadGenerator:
-    """Finds companies that need attack surface monitoring."""
+    """Store sourced prospects based on public company communications.
 
-    def __init__(self, data_dir="./data/leads/"):
+    This component does not scan company systems, use Shodan, run vulnerability
+    templates, authenticate, or infer that a business has a vulnerability.
+    """
+
+    def __init__(self, data_dir: str = "./data/leads/"):
         self.data_dir = data_dir
         os.makedirs(data_dir, exist_ok=True)
         self.leads_file = os.path.join(data_dir, "leads.json")
         self._load_leads()
 
-    def _load_leads(self):
+    def _load_leads(self) -> None:
         if os.path.exists(self.leads_file):
-            with open(self.leads_file) as f:
-                self.leads = json.load(f)
+            with open(self.leads_file, encoding="utf-8") as handle:
+                self.leads = json.load(handle)
         else:
             self.leads = {}
 
-    def _save_leads(self):
-        with open(self.leads_file, "w") as f:
-            json.dump(self.leads, f, indent=2, default=str)
+    def _save_leads(self) -> None:
+        with open(self.leads_file, "w", encoding="utf-8") as handle:
+            json.dump(self.leads, handle, indent=2, default=str)
 
-    def discover_from_shodan(self, query, limit=20):
-        """
-        Discover companies with exposed services via Shodan.
-        Requires SHODAN_API_KEY environment variable.
-        """
-        api_key = os.environ.get("SHODAN_API_KEY")
-        if not api_key:
-            print("[Finch] SHODAN_API_KEY not set. Skipping Shodan discovery.")
-            return []
+    @staticmethod
+    def qualifies_public_signal(title: str, excerpt: str) -> bool:
+        text = f"{title} {excerpt}".lower()
+        return any(term in text for term in SECURITY_TERMS)
 
-        leads = []
-        try:
-            resp = requests.get(
-                f"https://api.shodan.io/shodan/host/search",
-                params={"key": api_key, "query": query, "limit": limit}
-            )
-            for match in resp.json().get("matches", []):
-                org = match.get("org", match.get("isp", "Unknown"))
-                hostnames = match.get("hostnames", [])
-                domain = hostnames[0] if hostnames else match.get("ip_str", "")
-
-                lead = self._build_lead(
-                    company=org,
-                    domain=domain,
-                    source="shodan",
-                    raw_data=match,
-                )
-                leads.append(lead)
-                self._add_lead(lead)
-        except Exception as e:
-            print(f"[Finch] Shodan error: {e}")
-
-        self._save_leads()
-        return leads
-
-    def discover_from_builtwith(self, domain):
-        """Enrich a lead with technology stack data from BuiltWith."""
-        api_key = os.environ.get("BUILTWITH_API_KEY")
-        if not api_key:
-            return {}
-
-        try:
-            resp = requests.get(
-                f"https://api.builtwith.com/free1/api.json",
-                params={"KEY": api_key, "LOOKUP": domain}
-            )
-            return resp.json()
-        except Exception:
-            return {}
-
-    def scan_for_vulnerabilities(self, domain):
-        """
-        Quick scan a domain to find obvious issues.
-        This is the "proof" Finch sends in cold emails.
-        """
-        findings = []
-        try:
-            # Quick httpx probe
-            result = subprocess.run(
-                ["httpx", "-u", f"https://{domain}", "-silent", "-status-code", "-tech-detect"],
-                capture_output=True, text=True, timeout=30
-            )
-            if result.stdout.strip():
-                findings.append({
-                    "tool": "httpx",
-                    "result": result.stdout.strip(),
-                })
-        except Exception:
-            pass
-
-        try:
-            # Quick nuclei scan for criticals only
-            result = subprocess.run(
-                ["nuclei", "-u", f"https://{domain}", "-severity", "critical,high",
-                 "-silent", "-timeout", "5", "-retries", "0"],
-                capture_output=True, text=True, timeout=60
-            )
-            if result.stdout.strip():
-                for line in result.stdout.strip().split("\n"):
-                    findings.append({
-                        "tool": "nuclei",
-                        "finding": line.strip(),
-                    })
-        except Exception:
-            pass
-
-        return findings
-
-    def _build_lead(self, company, domain, source, raw_data):
-        return {
-            "id": domain.lower().replace(".", "_"),
-            "company": company,
+    def ingest_public_signal(
+        self,
+        *,
+        company: str,
+        domain: str,
+        source_url: str,
+        title: str,
+        excerpt: str,
+        business_type: str,
+        published_at: str | None = None,
+    ) -> dict | None:
+        """Ingest a sourced public result; return None when it is unsuitable."""
+        host = urlparse(source_url).hostname
+        domain = (domain or "").strip().lower().removeprefix("www.")
+        if (
+            not company.strip()
+            or not domain
+            or not host
+            or business_type not in ELIGIBLE_COMPANY_TYPES
+            or not self.qualifies_public_signal(title, excerpt)
+        ):
+            return None
+        lead_id = hashlib.sha256(f"{company.lower()}|{domain}".encode()).hexdigest()[:20]
+        lead = self.leads.get(lead_id) or {
+            "id": lead_id,
+            "company": company.strip(),
             "domain": domain,
-            "source": source,
-            "discovered_at": datetime.now().isoformat(),
-            "stage": "discovered",
-            "enrichment": {},
-            "vulnerabilities": [],
+            "business_type": business_type,
+            "stage": "sourced",
+            "signals": [],
             "outreach": [],
-            "raw_data": str(raw_data)[:500],
+            "discovered_at": datetime.now(timezone.utc).isoformat(),
         }
-
-    def _add_lead(self, lead):
-        lead_id = lead["id"]
-        if lead_id not in self.leads:
-            self.leads[lead_id] = lead
-            print(f"[Finch] New lead: {lead['company']} ({lead['domain']})")
-
-    def enrich_all(self):
-        """Enrich all undiscovered leads with tech stack and vuln data."""
-        for lead_id, lead in self.leads.items():
-            if lead["stage"] == "discovered":
-                print(f"[Finch] Enriching: {lead['company']}...")
-
-                # Scan for vulnerabilities
-                vulns = self.scan_for_vulnerabilities(lead["domain"])
-                if vulns:
-                    lead["vulnerabilities"] = vulns
-                    lead["stage"] = "enriched"
-
+        if not any(item.get("source_url") == source_url for item in lead["signals"]):
+            lead["signals"].append({
+                "source_url": source_url,
+                "title": title[:240],
+                "excerpt": excerpt[:500],
+                "published_at": published_at,
+                "recorded_at": datetime.now(timezone.utc).isoformat(),
+            })
+        self.leads[lead_id] = lead
         self._save_leads()
+        return lead
 
-    def get_ready_for_outreach(self):
-        """Return leads that are enriched and ready for outreach."""
+    def get_ready_for_outreach(self) -> list[dict]:
         return [
             lead for lead in self.leads.values()
-            if lead["stage"] == "enriched" or lead["stage"] == "outreached"
+            if lead.get("stage") in {"sourced", "qualified"}
+            and lead.get("signals")
         ]
 
-    def get_stats(self):
-        """Lead pipeline statistics for Finch's reports."""
-        stages = {}
+    def get_stats(self) -> dict:
+        stages: dict[str, int] = {}
         for lead in self.leads.values():
             stage = lead.get("stage", "unknown")
             stages[stage] = stages.get(stage, 0) + 1
-
         return {
             "total": len(self.leads),
             "stages": stages,
-            "with_vulnerabilities": sum(
-                1 for l in self.leads.values() if l.get("vulnerabilities")
-            ),
+            "with_public_signals": sum(1 for lead in self.leads.values() if lead.get("signals")),
         }
+
+    # Explicit fail-closed methods retained for older callers.
+    def discover_from_shodan(self, *args, **kwargs):
+        raise RuntimeError("prohibited_discovery_method")
+
+    def scan_for_vulnerabilities(self, *args, **kwargs):
+        raise RuntimeError("prohibited_scanning_method")
+
+    def enrich_all(self):
+        return []

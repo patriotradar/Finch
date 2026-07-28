@@ -91,7 +91,7 @@ class FinchTelegram:
             stats = self.daemon.lead_gen.get_stats()
             await update.message.reply_text(
                 f"🔍 Total leads: {stats['total']}\n"
-                f"⚠️  With vulnerabilities: {stats['with_vulnerabilities']}\n"
+                f"Public security signals: {stats['with_public_signals']}\n"
                 f"📬 Outreached: {stats['stages'].get('outreached', 0)}\n"
                 f"💬 In conversation: {stats['stages'].get('in_conversation', 0)}\n"
                 f"✅ Closed: {stats['stages'].get('closed', 0)}"

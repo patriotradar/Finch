@@ -23,6 +23,23 @@ def test_public_product_files_have_no_kane_or_voice_clone_identity():
     assert "voice clone" not in combined
 
 
+def test_repository_has_no_celebrity_voice_or_active_prospect_scanning():
+    files = [
+        ROOT / "voice" / "tts.py",
+        ROOT / "sales" / "lead_gen.py",
+        ROOT / "asm" / "scanner.py",
+        ROOT / "asm" / "monitor.py",
+        ROOT / "config.yaml",
+        ROOT / "setup.sh",
+    ]
+    combined = "\n".join(path.read_text(encoding="utf-8").lower() for path in files)
+    assert "michael emerson" not in combined
+    assert "voice cloning" not in combined
+    assert '["nuclei"' not in combined
+    assert '["subfinder"' not in combined
+    assert '["httpx"' not in combined
+
+
 def test_landing_page_has_required_factual_sales_content():
     page = (ROOT / "web" / "landing.html").read_text(encoding="utf-8")
     required = [

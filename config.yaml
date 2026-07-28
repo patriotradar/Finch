@@ -2,7 +2,7 @@
 
 identity:
   name: "Harold"
-  full_name: "Harold Finch"
+  full_name: "Harold"
   wake_words: ["finch", "harold"]
 
 personality:
@@ -48,7 +48,7 @@ voice:
     pause_threshold: 1.0
   tts:
     engine: "piper"
-    piper_model: "en_US-lessac-medium"
+    piper_model: "en_GB-alan-medium"
   voice_activity_timeout: 30  # seconds before going to listening mode
 
 sales:
@@ -56,38 +56,29 @@ sales:
     provider: "smtp"
     smtp_host: "smtp.gmail.com"
     smtp_port: 587
-    daily_limit: 50
+    daily_limit: 20
     min_delay_between: 120  # seconds
   lead_sources:
-    - "builtwith"
-    - "linkedin_sales_navigator"
-    - "crunchbase"
-    - "shodan"
+    - "public_company_news"
+    - "public_company_careers"
+    - "public_company_security_pages"
   outreach:
-    max_emails_per_day: 30
+    max_emails_per_day: 20
     followup_sequence: [2, 5, 10]  # days after initial
     max_followups: 3
 
 pricing:
   currency: "GBP"
   founding_annual_gbp: 995
-  standard_annual_gbp: 3000
+  standard_annual_gbp: 995
   founding_slots: 8
   authorised_users: 5
   approved_assets: 25
   term_months: 12
 
 asm:
-  scan_interval: 86400  # daily in seconds
-  tools:
-    subfinder: true
-    httpx: true
-    nuclei: true
-    naabu: true
-  nuclei_templates:
-    - "exposures"
-    - "misconfiguration"
-    - "vulnerabilities"
+  scan_interval: 86400
+  mode: "passive_public_information_only"
 
 monitoring:
   dashboard_port: 8050
