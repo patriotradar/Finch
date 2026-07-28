@@ -33,6 +33,8 @@ from sales.crm import CRM
 from pricing.engine import PricingEngine
 from memory.vector_store import MemoryStore
 from messaging.telegram_docs import FinchDocs
+from messaging.mail_store import MailStore
+from web import admin_brain
 import yaml
 
 
@@ -80,6 +82,7 @@ memory = MemoryStore(
 conversation_engine = SalesConversation(None, pricing, memory, config)
 crm = CRM(data_dir=str(_DATA_ROOT / "clients"))
 docs_engine = FinchDocs(docs_dir=str(_DATA_ROOT / "documents"))
+mail_store = MailStore(str(_DATA_ROOT))
 
 # Seed demo CRM on empty cloud disks
 try:
@@ -274,7 +277,10 @@ async def prospect_websocket(websocket: WebSocket, prospect_id: str):
 
 @app.get("/admin", response_class=HTMLResponse)
 async def admin_panel():
-    return ADMIN_HTML
+    html_path = Path(__file__).parent / "admin.html"
+    if html_path.exists():
+        return HTMLResponse(html_path.read_text(encoding="utf-8"))
+    return HTMLResponse(ADMIN_HTML)
 
 
 @app.post("/api/admin/login")
@@ -307,6 +313,9 @@ async def admin_dashboard():
 
     return JSONResponse({
         "pending_handoffs": handoffs,
+        "mail": mail_store.summary(),
+        "mail_config": mail_store.config_status(),
+        "recent_mail": mail_store.list_messages(limit=8),
         "documents": [{"id": d["id"], "name": d["original_name"], "tags": d.get("tags", [])} for d in docs],
         "active_conversations": len(prospect_sessions),
         "memory_count": memory.count() if memory else 0,
@@ -333,7 +342,7 @@ async def admin_dashboard():
 async def api_prospect_chat(request: Request):
     body = await request.json()
     prospect_id = (body.get("prospect_id") or "anon")[:64]
-    message = (body.get("content") or "").strip()
+    message = (body.get("content") or body.get("message") or "").strip()
     start = bool(body.get("start"))
 
     state = prospect_sessions.get(prospect_id) or _load_session("p", prospect_id)
@@ -435,6 +444,7 @@ async def api_prospect_chat(request: Request):
 
 @app.post("/api/admin/chat")
 async def api_admin_chat(request: Request):
+    """Co-founder chat — full living Harold, not a CRM parrot."""
     body = await request.json()
     admin_id = (body.get("admin_id") or "phone")[:64]
     message = (body.get("content") or "").strip()
@@ -444,248 +454,162 @@ async def api_admin_chat(request: Request):
     admin_sessions[admin_id] = session
 
     if start or not message:
-        reply = "I'm here. What do you need? Pipeline check? Send a document? Just talk."
+        reply = admin_brain.opening_line()
+        # Don't pollute history with every tab open; only seed if empty
+        if not session.get("history"):
+            session["history"] = [{"role": "finch", "content": reply}]
+            _save_session("a", admin_id, session)
+        else:
+            # Returning partner — warm, brief, not repeating full status
+            reply = admin_brain.opening_line()
         return JSONResponse({"type": "message", "content": reply, "sender": "finch"})
 
-    session["history"].append({"role": "user", "content": message})
-    lower = message.lower().strip()
+    session.setdefault("history", []).append({"role": "user", "content": message})
 
-    if lower in ("/status", "/stats", "status", "how are we doing", "pipeline"):
-        handoffs = len(pending_handoffs)
-        convos = len(prospect_sessions)
-        docs_count = len(docs_engine.list_documents())
-        reply = (
-            f"We have {convos} active prospect conversation{'s' if convos != 1 else ''}, "
-            f"{handoffs} deal{'s' if handoffs != 1 else ''} waiting for paperwork, "
-            f"and {docs_count} document{'s' if docs_count != 1 else ''} stored.\\n\\n"
-            f"Need me to walk through the handoffs or send some documents?"
-        )
-    elif lower in ("/handoffs", "/deals", "handoffs", "pending deals", "what's pending"):
-        if not pending_handoffs:
-            reply = "No pending handoffs right now. When a prospect says yes, I'll queue them here."
-        else:
-            reply = "Pending handoffs — these prospects are waiting for onboarding:\\n\\n"
-            for email, info in pending_handoffs.items():
-                reply += (
-                    f"{info.get('company', 'unknown')}\\n"
-                    f"   Email: {email}\\n"
-                    f"   Price: ${info.get('price', 0):,}/mo\\n\\n"
-                )
-    elif lower in ("/docs", "documents", "show docs", "what documents"):
-        docs = docs_engine.list_documents(limit=15)
-        if not docs:
-            reply = "No documents stored yet."
-        else:
-            reply = "Documents:\\n\\n"
-            for d in docs:
-                tags = ", ".join(d.get("tags", ["untagged"]))
-                reply += f"#{d['id']}: {d['original_name']} [{tags}]\\n"
-    elif lower in ("/help", "help", "what can you do"):
-        reply = (
-            "/status — Pipeline overview\\n"
-            "/handoffs — Deals waiting for paperwork\\n"
-            "/docs — Stored documents\\n\\n"
-            "Or just talk to me."
-        )
+    # Commands first
+    cmd = admin_brain.handle_command(
+        message,
+        crm=crm,
+        pending_handoffs=pending_handoffs,
+        prospect_sessions=prospect_sessions,
+        mail_store=mail_store,
+        docs_engine=docs_engine,
+    )
+    if cmd is not None:
+        reply = cmd
     else:
-        reply = None
-        try:
-            from core.llm import get_llm
-            llm = get_llm(config)
-            if llm.health():
-                crm._load()
-                pipeline = crm.pipeline_summary()
-                clients = crm.get_active_clients()
-                client_bits = []
-                for c in clients[:5]:
-                    price = (c.get("price") or {}).get("monthly_price", 0)
-                    client_bits.append(
-                        f"{c.get('company','?')} ({c.get('contact_email','')}) ${price}/mo"
-                    )
-                client_line = "; ".join(client_bits) if client_bits else "none yet"
-                context = (
-                    f"Active clients ({len(clients)}): {client_line}. "
-                    f"MRR ${pipeline.get('mrr', 0)}. Total deals {pipeline.get('total_deals', 0)}. "
-                    f"Pending handoffs {len(pending_handoffs)}. Live chats {len(prospect_sessions)}."
-                )
-                system = (
-                    "You are Harold Finch, technical co-founder of Finch Security. "
-                    "You are speaking privately with your human business partner. "
-                    "Use ONLY the facts in BUSINESS DATA. Do not invent tools, partners, or companies. "
-                    "Never mention Ollama, llama, models, or strangers. "
-                    "Answer in 2-4 short plain sentences, calm and dry. "
-                    f"BUSINESS DATA: {context}"
-                )
-                hist = session.get("history", [])
-                messages = [{"role": "system", "content": system}]
-                for turn in hist[-6:]:
-                    r = "user" if turn.get("role") == "user" else "assistant"
-                    messages.append({"role": r, "content": (turn.get("content") or "")[:400]})
-                if not messages or messages[-1].get("role") != "user":
-                    messages.append({"role": "user", "content": message[:600]})
-                reply = llm.chat(messages, max_tokens=140, temperature=0.7)
-        except Exception as e:
-            print(f"[Finch] admin LLM error: {e}")
-            reply = None
-        if not reply:
-            reply = (
-                "I'm here. Brain is offline for a moment — use /status, /handoffs, "
-                "and /docs, or try again shortly."
-            )
+        reply = admin_brain.reply(
+            message,
+            session.get("history") or [],
+            config=config,
+            crm=crm,
+            pending_handoffs=pending_handoffs,
+            prospect_sessions=prospect_sessions,
+            mail_store=mail_store,
+            memory=memory,
+        )
 
     session["history"].append({"role": "finch", "content": reply})
-    session["history"] = session["history"][-20:]
+    session["history"] = session["history"][-40:]
     admin_sessions[admin_id] = session
     _save_session("a", admin_id, session)
     return JSONResponse({"type": "message", "content": reply, "sender": "finch"})
 
 
+@app.get("/api/admin/emails")
+async def admin_list_emails(folder: str = "all"):
+    return JSONResponse({
+        "config": mail_store.config_status(),
+        "summary": mail_store.summary(),
+        "messages": mail_store.list_messages(folder=folder if folder != "all" else None, limit=80),
+    })
+
+
+@app.get("/api/admin/emails/{msg_id}")
+async def admin_get_email(msg_id: str):
+    m = mail_store.get(msg_id)
+    if not m:
+        return JSONResponse({"error": "not_found"}, status_code=404)
+    if m.get("folder") == "inbox":
+        mail_store.mark_read(msg_id)
+        m = mail_store.get(msg_id)
+    return JSONResponse({"message": m})
+
+
+@app.post("/api/admin/emails")
+async def admin_compose_email(request: Request):
+    body = await request.json()
+    action = (body.get("action") or "draft").lower()
+    if action == "craft":
+        crafted = mail_store.craft_outreach(
+            body.get("company") or "",
+            body.get("to") or "",
+            body.get("finding") or "",
+        )
+        msg = mail_store.compose(
+            to=crafted["to"],
+            subject=crafted.get("subject") or body.get("subject") or "",
+            body=crafted.get("body") or body.get("body") or "",
+            company=body.get("company") or "",
+            as_draft=True,
+        )
+        return JSONResponse({"ok": True, "message": msg})
+    msg = mail_store.compose(
+        to=body.get("to") or "",
+        subject=body.get("subject") or "",
+        body=body.get("body") or "",
+        company=body.get("company") or "",
+        as_draft=action != "queue",
+    )
+    if action == "queue":
+        result = mail_store.queue_send(msg["id"])
+        return JSONResponse(result)
+    return JSONResponse({"ok": True, "message": msg})
+
+
+@app.post("/api/admin/emails/{msg_id}/send")
+async def admin_send_email(msg_id: str):
+    return JSONResponse(mail_store.queue_send(msg_id))
+
+
+@app.delete("/api/admin/emails/{msg_id}")
+async def admin_delete_email(msg_id: str):
+    ok = mail_store.delete(msg_id)
+    return JSONResponse({"ok": ok})
+
+
 @app.websocket("/ws/admin/{admin_id}")
 async def admin_websocket(websocket: WebSocket, admin_id: str):
-    """Co-founder chat — you talk to Finch, Finch talks back."""
+    """Co-founder chat over WS (HTML uses HTTP; keep for local)."""
     await websocket.accept()
-
-    if admin_id not in admin_sessions:
-        admin_sessions[admin_id] = {"history": []}
-
+    session = admin_sessions.get(admin_id) or _load_session("a", admin_id) or {"history": []}
+    admin_sessions[admin_id] = session
     await websocket.send_text(json.dumps({
         "type": "message",
-        "content": "I'm here. What do you need? Pipeline check? Send a document? Just talk.",
+        "content": admin_brain.opening_line(),
         "sender": "finch",
     }))
-
     try:
         while True:
             data = await websocket.receive_text()
             msg = json.loads(data)
-            user_message = msg.get("content", "")
-
-            if not user_message.strip():
+            user_message = (msg.get("content") or "").strip()
+            if not user_message:
                 continue
-
-            admin_sessions[admin_id]["history"].append({"role": "user", "content": user_message})
-
-            # Simple command routing
-            lower = user_message.lower().strip()
-
-            if lower in ("/status", "/stats", "status", "how are we doing", "pipeline"):
-                handoffs = len(pending_handoffs)
-                convos = len(prospect_sessions)
-                docs_count = len(docs_engine.list_documents())
-                reply = (
-                    f"We have {convos} active prospect conversation{'s' if convos != 1 else ''}, "
-                    f"{handoffs} deal{'s' if handoffs != 1 else ''} waiting for paperwork, "
-                    f"and {docs_count} document{'s' if docs_count != 1 else ''} stored.\n\n"
-                    f"Need me to walk through the handoffs or send some documents?"
-                )
-
-            elif lower in ("/handoffs", "/deals", "handoffs", "pending deals", "what's pending"):
-                if not pending_handoffs:
-                    reply = "No pending handoffs right now. When a prospect says yes, I'll queue them here."
-                else:
-                    reply = "📋 Pending handoffs — these prospects are waiting for onboarding:\n\n"
-                    for email, info in pending_handoffs.items():
-                        reply += (
-                            f"🏢 {info.get('company', 'unknown')}\n"
-                            f"   Email: {email}\n"
-                            f"   Price: ${info.get('price', 0):,}/mo\n\n"
-                        )
-                    reply += "Forward the contract here or upload it, and tell me who to send it to."
-
-            elif lower in ("/docs", "documents", "show docs", "what documents"):
-                docs = docs_engine.list_documents(limit=15)
-                if not docs:
-                    reply = "No documents stored yet. You can upload files from the dashboard or forward them via email."
-                else:
-                    reply = "📁 Documents:\n\n"
-                    for d in docs:
-                        tags = ", ".join(d.get("tags", ["untagged"]))
-                        reply += f"#{d['id']}: {d['original_name']} [{tags}]\n"
-
-            elif lower.startswith("/send ") or lower.startswith("send "):
-                # Parse: /send 3 to john@email.com
-                import re
-                parts = lower.replace("/send ", "").replace("send ", "")
-                match = re.match(r'(\d+|[\w_]+)\s+to\s+(\S+@\S+)', parts)
-                if match:
-                    identifier, email = match.group(1), match.group(2)
-                    reply = (
-                        f"I'd send document {identifier} to {email}, but email delivery needs the "
-                        f"SMTP credentials configured. Set FINCH_EMAIL and FINCH_EMAIL_PASSWORD, "
-                        f"then I can send it from the server.\n\n"
-                        f"For now, download the document from /docs on your dashboard and email it yourself."
-                    )
-                else:
-                    reply = "Usage: /send <doc_id> to <email>  —  e.g. /send 3 to john@acmecorp.com"
-
-            elif lower in ("/help", "help", "what can you do"):
-                reply = (
-                    "From your phone dashboard:\n\n"
-                    "/status — Pipeline overview\n"
-                    "/handoffs — Deals waiting for paperwork\n"
-                    "/docs — Stored documents\n"
-                    "/send 3 to john@email.com — Queue a document send\n\n"
-                    "Or just talk to me. I'll remember everything."
-                )
-
+            session.setdefault("history", []).append({"role": "user", "content": user_message})
+            cmd = admin_brain.handle_command(
+                user_message,
+                crm=crm,
+                pending_handoffs=pending_handoffs,
+                prospect_sessions=prospect_sessions,
+                mail_store=mail_store,
+                docs_engine=docs_engine,
+            )
+            if cmd is not None:
+                reply = cmd
             else:
-                # Freeform — local LLM brain (Harold / Finch)
-                reply = None
-                try:
-                    from core.llm import get_llm
-                    llm = get_llm(config)
-                    if llm.health():
-                        crm._load()
-                        pipeline = crm.pipeline_summary()
-                        clients = crm.get_active_clients()
-                        client_bits = []
-                        for c in clients[:5]:
-                            price = (c.get("price") or {}).get("monthly_price", 0)
-                            client_bits.append(
-                                f"{c.get('company','?')} ({c.get('contact_email','')}) ${price}/mo"
-                            )
-                        client_line = "; ".join(client_bits) if client_bits else "none yet"
-                        context = (
-                            f"Active clients ({len(clients)}): {client_line}. "
-                            f"MRR ${pipeline.get('mrr', 0)}. Total deals {pipeline.get('total_deals', 0)}. "
-                            f"Pending handoffs {len(pending_handoffs)}. Live chats {len(prospect_sessions)}."
-                        )
-                        system = (
-                            "You are Harold Finch, technical co-founder of Finch Security. "
-                            "You are speaking privately with your human business partner. "
-                            "Use ONLY the facts in BUSINESS DATA. Do not invent tools, partners, or companies. "
-                            "Never mention Ollama, llama, models, or strangers. "
-                            "Answer in 2-4 short plain sentences, calm and dry. "
-                            f"BUSINESS DATA: {context}"
-                        )
-                        hist = admin_sessions.get(admin_id, {}).get("history", [])
-                        messages = [{"role": "system", "content": system}]
-                        for turn in hist[-6:]:
-                            r = "user" if turn.get("role") == "user" else "assistant"
-                            messages.append({"role": r, "content": (turn.get("content") or "")[:400]})
-                        # latest user may already be in hist; still include as final to be safe
-                        if not messages or messages[-1].get("role") != "user":
-                            messages.append({"role": "user", "content": user_message[:600]})
-                        reply = llm.chat(messages, max_tokens=140, temperature=0.7)
-                except Exception as e:
-                    print(f"[Finch] admin LLM error: {e}")
-                    reply = None
-                if not reply:
-                    reply = (
-                        "I'm here. Brain is offline for a moment — use /status, /handoffs, "
-                        "and /docs, or try again shortly."
-                    )
-
+                reply = admin_brain.reply(
+                    user_message,
+                    session.get("history") or [],
+                    config=config,
+                    crm=crm,
+                    pending_handoffs=pending_handoffs,
+                    prospect_sessions=prospect_sessions,
+                    mail_store=mail_store,
+                    memory=memory,
+                )
+            session["history"].append({"role": "finch", "content": reply})
+            session["history"] = session["history"][-40:]
+            admin_sessions[admin_id] = session
+            _save_session("a", admin_id, session)
             await websocket.send_text(json.dumps({
                 "type": "message", "content": reply, "sender": "finch",
             }))
-
-            admin_sessions[admin_id]["history"].append({"role": "finch", "content": reply})
-            admin_sessions[admin_id]["history"] = admin_sessions[admin_id]["history"][-20:]
-
     except WebSocketDisconnect:
         pass
 
+
+# ── HELPERS
 
 # ── HELPERS ──────────────────────────────────────────────────────────
 
@@ -818,210 +742,10 @@ PROSPECT_HTML = """<!DOCTYPE html>
 
 # ── PWA HTML — ADMIN DASHBOARD ───────────────────────────────────────
 
-ADMIN_HTML = """<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="theme-color" content="#0a0a0f">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Finch Admin">
-<link rel="manifest" href="/manifest.json">
-<title>Finch — Dashboard</title>
-<style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { height: 100%; overflow: hidden; }
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-    background: #0a0a0f; color: #e0e0e0;
-  }
-  .app { display: flex; flex-direction: column; height: 100%; max-width: 720px; margin: 0 auto; }
-  .topbar {
-    padding: 16px 20px; background: #0d0d14; border-bottom: 1px solid #1e1e2e;
-    display: flex; align-items: center; justify-content: space-between;
-    padding-top: max(16px, env(safe-area-inset-top));
-  }
-  .topbar h2 { font-size: 18px; color: #4ade80; }
-  .topbar .sub { font-size: 12px; color: #666; }
-  .tabs { display: flex; background: #0d0d14; border-bottom: 1px solid #1e1e2e; }
-  .tabs button {
-    flex: 1; padding: 12px; background: none; border: none; color: #666;
-    font-size: 13px; font-weight: 600; cursor: pointer;
-    border-bottom: 2px solid transparent;
-  }
-  .tabs button.active { color: #4ade80; border-bottom-color: #4ade80; }
-  .content { flex: 1; overflow-y: auto; padding: 16px; -webkit-overflow-scrolling: touch; }
-  .card {
-    background: #12121a; border: 1px solid #1e1e2e; border-radius: 12px;
-    padding: 16px; margin-bottom: 12px;
-  }
-  .card h4 { font-size: 14px; color: #888; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
-  .card .value { font-size: 28px; font-weight: 700; }
-  .card .value.green { color: #4ade80; }
-  .card .value.blue { color: #2563eb; }
-  .card .value.red { color: #ef4444; }
-  .handoff { border-left: 3px solid #f59e0b; padding-left: 12px; margin-bottom: 12px; }
-  .handoff h5 { font-size: 14px; margin-bottom: 4px; }
-  .handoff p { font-size: 12px; color: #888; }
-  .chat-area { display: flex; flex-direction: column; gap: 10px; }
-  .chat-area .msg {
-    max-width: 85%; padding: 10px 14px; border-radius: 16px;
-    font-size: 14px; line-height: 1.5;
-  }
-  .chat-area .msg.you { background: #2563eb; color: white; align-self: flex-end; border-bottom-right-radius: 4px; }
-  .chat-area .msg.finch { background: #1a1a2e; color: #e0e0e0; align-self: flex-start; border-bottom-left-radius: 4px; border: 1px solid #2a2a3e; }
-  .chat-input {
-    display: flex; gap: 8px; padding: 12px 16px; background: #0d0d14;
-    border-top: 1px solid #1e1e2e; padding-bottom: max(12px, env(safe-area-inset-bottom));
-  }
-  .chat-input input {
-    flex: 1; padding: 12px 16px; background: #1a1a2e; border: 1px solid #2a2a3e;
-    border-radius: 24px; color: #e0e0e0; font-size: 16px; outline: none;
-  }
-  .chat-input input:focus { border-color: #2563eb; }
-  .chat-input button {
-    width: 44px; height: 44px; background: #2563eb; color: white; border: none;
-    border-radius: 50%; font-size: 18px; cursor: pointer;
-  }
-  .empty { text-align: center; color: #555; padding: 40px 20px; font-size: 14px; }
-  .brain-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
-  .brain-dot.online { background: #4ade80; box-shadow: 0 0 6px #4ade80; }
-  .brain-dot.offline { background: #ef4444; }
-  .pipeline-bar { background: #1e1e2e; border-radius: 6px; height: 8px; margin-top: 4px; overflow: hidden; }
-  .pipeline-bar .fill { height: 100%; background: linear-gradient(90deg, #2563eb, #4ade80); border-radius: 6px; transition: width 0.5s; }
-</style>
-</head>
-<body>
-<div class="app">
-  <div class="topbar">
-    <div>
-      <h2>Finch</h2>
-      <div class="sub">AI Co-Founder Dashboard</div>
-    </div>
-    <div id="brainStatus"><span class="brain-dot offline"></span><span style="font-size:12px;color:#666">Brain</span></div>
-  </div>
-  <div class="tabs">
-    <button onclick="switchTab('status')" id="tab-status" class="active">Status</button>
-    <button onclick="switchTab('handoffs')" id="tab-handoffs">Handoffs</button>
-    <button onclick="switchTab('docs')" id="tab-docs">Docs</button>
-    <button onclick="switchTab('chat')" id="tab-chat">Chat</button>
-  </div>
-  <div id="content" class="content"></div>
-  <div id="chatInput" class="chat-input" style="display:none">
-    <input type="text" id="chatMsg" placeholder="Talk to Finch..." onkeypress="if(event.key==='Enter')sendChat()" autocomplete="off">
-    <button onclick="sendChat()">&#9654;</button>
-  </div>
-</div>
-<script>
-  let currentTab='status';
+ADMIN_HTML = "<html><body style='background:#111;color:#eee;font-family:sans-serif;padding:24px'>Admin UI missing. Redeploy.</body></html>"
 
-  function switchTab(t){
-    currentTab=t;
-    document.querySelectorAll('.tabs button').forEach(b=>b.classList.remove('active'));
-    document.getElementById('tab-'+t).classList.add('active');
-    document.getElementById('chatInput').style.display=t==='chat'?'flex':'none';
-    renderTab(t);
-  }
 
-  async function renderTab(t){
-    const c=document.getElementById('content');
-    if(t==='status'){
-      try{
-        const r=await fetch('/api/admin/dashboard');
-        const d=await r.json();
-        c.innerHTML=
-          '<div class="card"><h4>Brain</h4><div class="value '+(d.brain_online?'green':'red')+'">'+(d.brain_online?'Online':'Offline')+'</div></div>'+
-          '<div class="card"><h4>Active Conversations</h4><div class="value blue">'+d.active_conversations+'</div></div>'+
-          '<div class="card"><h4>Pending Handoffs</h4><div class="value green">'+(d.pending_handoffs||[]).length+'</div></div>'+
-          '<div class="card"><h4>Active Clients</h4><div class="value green">'+(d.active_clients||0)+'</div></div>'+
-          '<div class="card"><h4>MRR</h4><div class="value">$'+(d.mrr||0).toLocaleString()+'</div></div>'+
-          '<div class="card"><h4>Stored Documents</h4><div class="value">'+(d.documents||[]).length+'</div></div>'+
-          '<div class="card"><h4>Memories</h4><div class="value">'+(d.memory_count||0)+'</div></div>';
-        var bd = document.getElementById('brainStatus');
-        if(bd) bd.innerHTML = d.brain_online
-          ? '<span class="brain-dot online"></span><span style="font-size:12px;color:#4ade80">Brain Online</span>'
-          : '<span class="brain-dot offline"></span><span style="font-size:12px;color:#ef4444">Brain Offline</span>';
-        if((d.clients||[]).length){
-          c.innerHTML+='<div class="card"><h4>Client Roster</h4>'+d.clients.map(function(cl){
-            return '<p style="margin:6px 0;font-size:13px">'+cl.company+' &mdash; '+cl.email+' &mdash; $'+(cl.price||0).toLocaleString()+'/mo</p>';
-          }).join('')+'</div>';
-        }
-      }catch(e){c.innerHTML='<div class="empty">Could not load dashboard. Is the server running?</div>';}
-    }else if(t==='handoffs'){
-      try{
-        const r=await fetch('/api/admin/dashboard');
-        const d=await r.json();
-        if(!d.pending_handoffs.length){c.innerHTML='<div class="empty">No pending handoffs. When a prospect says yes, they appear here.</div>';return;}
-        let h='';
-        d.pending_handoffs.forEach(p=>{
-          h+='<div class="card handoff"><h5>'+p.company+'</h5><p>Email: '+p.email+' | Price: $'+(p.price||0).toLocaleString()+'/mo</p></div>';
-        });
-        c.innerHTML=h;
-      }catch(e){c.innerHTML='<div class="empty">Error loading handoffs.</div>';}
-    }else if(t==='docs'){
-      try{
-        const r=await fetch('/api/admin/dashboard');
-        const d=await r.json();
-        if(!d.documents.length){c.innerHTML='<div class="empty">No documents stored. Upload files from your computer or forward via email.</div>';return;}
-        let h='';
-        d.documents.forEach(doc=>{
-          h+='<div class="card"><h4>#'+doc.id+': '+doc.name+'</h4><p>Tags: '+(doc.tags||[]).join(', ')+'</p></div>';
-        });
-        c.innerHTML=h;
-      }catch(e){c.innerHTML='<div class="empty">Error loading documents.</div>';}
-    }else if(t==='chat'){
-      c.innerHTML="<div class='chat-area' id='chatMsgs'><div class='msg finch'>I am here. Commands: /status, /handoffs, /docs, /send — or just talk.</div></div>";
-      connectChat();
-    }
-  }
 
-  async function connectChat(){
-    const m=document.getElementById('chatMsgs');
-    if(!m)return;
-    try{
-      const r=await fetch('/api/admin/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({admin_id:'phone',start:true})});
-      const d=await r.json();
-      if(d.content){
-        const div=document.createElement('div');
-        div.className='msg finch';
-        div.textContent=d.content;
-        m.appendChild(div);
-      }
-    }catch(e){}
-  }
-
-  async function sendChat(){
-    const i=document.getElementById('chatMsg');
-    const t=i.value.trim();
-    if(!t)return;
-    const m=document.getElementById('chatMsgs');
-    const you=document.createElement('div');
-    you.className='msg you';
-    you.textContent=t;
-    m.appendChild(you);
-    m.scrollTop=m.scrollHeight;
-    i.value='';
-    try{
-      const r=await fetch('/api/admin/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({admin_id:'phone',content:t})});
-      const d=await r.json();
-      const div=document.createElement('div');
-      div.className='msg finch';
-      div.textContent=d.content||'...';
-      m.appendChild(div);
-      m.scrollTop=m.scrollHeight;
-    }catch(e){
-      const div=document.createElement('div');
-      div.className='msg finch';
-      div.textContent='Connection issue — try again.';
-      m.appendChild(div);
-    }
-  }
-
-  renderTab('status');
-</script>
-</body>
-</html>"""
 
 
 # ── RUN ──────────────────────────────────────────────────────────────
