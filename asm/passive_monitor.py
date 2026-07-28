@@ -7,6 +7,7 @@ import http.client
 import json
 import socket
 import ssl
+import urllib.request
 from dataclasses import dataclass
 from typing import Any, Callable
 from urllib.parse import urlparse
@@ -14,7 +15,12 @@ from urllib.parse import urlparse
 import dns.resolver
 from sqlalchemy.orm import Session
 
-from core.models import Evidence, MonitoringRequest, Observation, ObservationStatus
+from sqlalchemy import select
+
+from core.models import (
+    AssetSnapshot, CustomerAlert, Evidence, MonitoringRequest, Observation,
+    ObservationStatus, utcnow,
+)
 from core.tenant import require_monitorable_asset
 
 
@@ -40,7 +46,13 @@ class PassiveMonitor:
 
     def __init__(self, session: Session, collectors: list[Callable[[str], PublicResult]] | None = None):
         self.session = session
-        self.collectors = collectors or [self.collect_dns, self.collect_tls, self.collect_http_headers]
+        self.collectors = collectors or [
+            self.collect_dns,
+            self.collect_email_security,
+            self.collect_tls,
+            self.collect_http_headers,
+            self.collect_certificate_transparency,
+        ]
 
     def monitor_asset(self, workspace_id: str, asset_id: str) -> list[Observation]:
         asset = require_monitorable_asset(self.session, workspace_id, asset_id)
@@ -84,14 +96,54 @@ class PassiveMonitor:
                 content_hash=hashlib.sha256(encoded).hexdigest(),
                 metadata_json=result.payload,
             ))
+            self._record_change(workspace_id, asset.id, result, observation.id)
             observations.append(observation)
         return observations
+
+    def _record_change(
+        self, workspace_id: str, asset_id: str, result: PublicResult, observation_id: str
+    ) -> None:
+        encoded = json.dumps(result.payload, sort_keys=True).encode("utf-8")
+        fingerprint = hashlib.sha256(encoded).hexdigest()
+        snapshot = self.session.scalar(
+            select(AssetSnapshot).where(
+                AssetSnapshot.asset_id == asset_id,
+                AssetSnapshot.source_type == result.source_type,
+            )
+        )
+        if snapshot is None:
+            self.session.add(AssetSnapshot(
+                workspace_id=workspace_id,
+                asset_id=asset_id,
+                source_type=result.source_type,
+                fingerprint=fingerprint,
+                payload=result.payload,
+            ))
+            return
+        if snapshot.fingerprint != fingerprint:
+            self.session.add(CustomerAlert(
+                workspace_id=workspace_id,
+                asset_id=asset_id,
+                observation_id=observation_id,
+                alert_type="public_metadata_changed",
+                title=f"{result.source_type} information changed",
+                detail=(
+                    "Public metadata changed since the previous observation. "
+                    "This does not prove a security issue; customer IT verification is required."
+                ),
+                important=result.source_type in {"TLS", "Email security"},
+            ))
+            snapshot.fingerprint = fingerprint
+            snapshot.payload = result.payload
+        snapshot.last_seen_at = utcnow()
 
     @staticmethod
     def _validate_result(result: PublicResult, approved_domain: str) -> None:
         if result.method not in SAFE_HTTP_METHODS:
             raise ValueError("unsafe_method_blocked")
-        if (urlparse(result.target).hostname or "").lower() != approved_domain.lower():
+        target_host = (urlparse(result.target).hostname or "").lower()
+        allowed_public_sources = {"crt.sh"}
+        if target_host != approved_domain.lower() and target_host not in allowed_public_sources:
             raise ValueError("target_outside_approved_asset")
 
     @staticmethod
@@ -130,6 +182,71 @@ class PassiveMonitor:
         except Exception as error:
             return PublicResult(
                 "TLS", "GET", f"tls://{domain}:443", None, {},
+                outcome="stopped", stopped_reason=type(error).__name__,
+            )
+
+    @staticmethod
+    def collect_email_security(domain: str) -> PublicResult:
+        payload: dict[str, Any] = {"spf": [], "dmarc": []}
+        try:
+            try:
+                payload["spf"] = [
+                    str(value)[:1000] for value in dns.resolver.resolve(domain, "TXT", lifetime=TIMEOUT_SECONDS)
+                    if "v=spf1" in str(value).lower()
+                ][:10]
+            except Exception:
+                pass
+            try:
+                payload["dmarc"] = [
+                    str(value)[:1000]
+                    for value in dns.resolver.resolve(f"_dmarc.{domain}", "TXT", lifetime=TIMEOUT_SECONDS)
+                    if "v=dmarc1" in str(value).lower()
+                ][:10]
+            except Exception:
+                pass
+            payload["dkim_note"] = (
+                "DKIM selectors cannot be guessed. Aegis records DKIM only when the "
+                "customer supplies a selector or it is publicly disclosed."
+            )
+            return PublicResult("Email security", "GET", f"dns://{domain}", None, payload)
+        except Exception as error:
+            return PublicResult(
+                "Email security", "GET", f"dns://{domain}", None, {},
+                outcome="stopped", stopped_reason=type(error).__name__,
+            )
+
+    @staticmethod
+    def collect_certificate_transparency(domain: str) -> PublicResult:
+        target = f"https://crt.sh/?q=%25.{domain}&output=json"
+        request = urllib.request.Request(
+            target,
+            headers={"User-Agent": "AegisPassiveMonitor/1.0", "Accept": "application/json"},
+            method="GET",
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=TIMEOUT_SECONDS) as response:
+                status = int(response.status)
+                raw = response.read(500_000)
+            if status in STOP_STATUSES:
+                return PublicResult(
+                    "Certificate transparency", "GET", target, status, {},
+                    outcome="stopped", stopped_reason=f"http_{status}",
+                )
+            records = json.loads(raw.decode("utf-8"))
+            names = sorted({
+                name.strip().lower().removeprefix("*.")
+                for record in records[:500]
+                for name in str(record.get("name_value") or "").splitlines()
+                if name.strip().lower().removeprefix("*.") == domain
+                or name.strip().lower().removeprefix("*.").endswith("." + domain)
+            })
+            return PublicResult(
+                "Certificate transparency", "GET", target, status,
+                {"certificate_names": names[:100], "truncated": len(names) > 100},
+            )
+        except Exception as error:
+            return PublicResult(
+                "Certificate transparency", "GET", target, None, {},
                 outcome="stopped", stopped_reason=type(error).__name__,
             )
 

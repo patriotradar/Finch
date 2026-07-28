@@ -162,6 +162,33 @@ class MonitoringRequest(Base):
     requested_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
+class AssetSnapshot(Base):
+    __tablename__ = "asset_snapshots"
+    __table_args__ = (UniqueConstraint("asset_id", "source_type"),)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid4)
+    workspace_id: Mapped[str] = mapped_column(ForeignKey("workspaces.id", ondelete="CASCADE"), index=True)
+    asset_id: Mapped[str] = mapped_column(ForeignKey("approved_assets.id", ondelete="CASCADE"), index=True)
+    source_type: Mapped[str] = mapped_column(String(40))
+    fingerprint: Mapped[str] = mapped_column(String(64))
+    payload: Mapped[dict] = mapped_column(JSON, default=dict)
+    first_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class CustomerAlert(Base):
+    __tablename__ = "customer_alerts"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid4)
+    workspace_id: Mapped[str] = mapped_column(ForeignKey("workspaces.id", ondelete="CASCADE"), index=True)
+    asset_id: Mapped[str] = mapped_column(ForeignKey("approved_assets.id", ondelete="CASCADE"), index=True)
+    observation_id: Mapped[str | None] = mapped_column(ForeignKey("observations.id", ondelete="SET NULL"))
+    alert_type: Mapped[str] = mapped_column(String(60))
+    title: Mapped[str] = mapped_column(String(240))
+    detail: Mapped[str] = mapped_column(Text)
+    important: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    acknowledged_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
 class Report(Base):
     __tablename__ = "reports"
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid4)

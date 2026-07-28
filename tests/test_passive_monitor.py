@@ -4,7 +4,7 @@ from sqlalchemy import func, select
 from asm.passive_monitor import PassiveMonitor, PublicResult
 from core.database import Base, build_engine, build_session_factory
 from core.models import (
-    ApprovedAsset, AssetStatus, Evidence, MonitoringRequest, Observation,
+    ApprovedAsset, AssetStatus, CustomerAlert, Evidence, MonitoringRequest, Observation,
     Workspace, WorkspaceUser,
 )
 
@@ -109,3 +109,17 @@ def test_blocks_unsafe_method_and_off_scope_target(seeded):
                 lambda domain: PublicResult("HTTP", "GET", "https://evil-alpha.example/", 200, {})
             ]).monitor_asset(workspace_id, asset_id)
 
+
+def test_metadata_change_creates_conservative_alert(seeded):
+    factory, workspace_id, asset_id, _ = seeded
+    first = lambda domain: PublicResult("TLS", "GET", f"tls://{domain}:443", None, {"notAfter": "A"})
+    changed = lambda domain: PublicResult("TLS", "GET", f"tls://{domain}:443", None, {"notAfter": "B"})
+    with factory() as session:
+        PassiveMonitor(session, [first]).monitor_asset(workspace_id, asset_id)
+        session.commit()
+    with factory() as session:
+        PassiveMonitor(session, [changed]).monitor_asset(workspace_id, asset_id)
+        session.commit()
+        alert = session.scalar(select(CustomerAlert))
+        assert alert.important is True
+        assert "does not prove" in alert.detail.lower()
