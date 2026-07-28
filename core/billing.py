@@ -23,7 +23,12 @@ class BillingService:
         existing = self.session.scalar(
             select(Subscription).where(Subscription.workspace_id == workspace_id)
         )
+        if existing and existing.status == "active":
+            return existing
         if existing:
+            existing.provider = provider
+            existing.provider_reference = reference
+            existing.status = "pending"
             return existing
         subscription = Subscription(
             workspace_id=workspace_id,

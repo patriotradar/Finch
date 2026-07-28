@@ -13,10 +13,12 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 
 from core.accounts import AccountService
+from core.billing import BillingService
 from core.models import (
     AgreementAcceptance, ApprovedAsset, AssetStatus, CustomerAlert, Observation,
-    Report, Role, Workspace, WorkspaceUser, utcnow,
+    Invoice, Report, Role, Subscription, Workspace, WorkspaceUser, utcnow,
 )
+from core.stripe_checkout import StripeCheckout
 from core.security import LoginThrottle
 from core.tenant import require_workspace_user
 from asm.report_pdf import build_report_pdf
@@ -82,12 +84,16 @@ def build_customer_router(session_factory, account_mailer=None) -> APIRouter:
             "alert_not_found", "report_not_found",
             "user_not_found", "cannot_disable_self", "owner_access_required",
             "workspace_already_cancelled",
+            "checkout_not_configured", "checkout_provider_unavailable",
+            "licence_already_active",
         }
         if code not in allowed:
             return JSONResponse({"error": "request_failed"}, status_code=500)
         status = 401 if isinstance(error, PermissionError) else 400
-        if code in {"email_already_registered"}:
+        if code in {"email_already_registered", "licence_already_active"}:
             status = 409
+        if code in {"checkout_not_configured", "checkout_provider_unavailable"}:
+            status = 503
         if code in {"asset_not_found", "alert_not_found", "report_not_found", "user_not_found"}:
             status = 404
         return JSONResponse({"error": code}, status_code=status)
@@ -183,7 +189,11 @@ def build_customer_router(session_factory, account_mailer=None) -> APIRouter:
                     "authenticated": True,
                     "csrf_token": active.csrf_token,
                     "user": {"id": user.id, "email": user.email, "role": user.role.value},
-                    "workspace": {"id": workspace.id, "company_name": workspace.company_name},
+                    "workspace": {
+                        "id": workspace.id,
+                        "company_name": workspace.company_name,
+                        "status": workspace.status,
+                    },
                 }
             finally:
                 db.close()
@@ -633,6 +643,71 @@ def build_customer_router(session_factory, account_mailer=None) -> APIRouter:
         response = JSONResponse({"cancelled": True})
         response.delete_cookie(CUSTOMER_COOKIE, path="/", samesite="strict")
         return response
+
+    @router.get("/billing")
+    def billing_status(aegis_customer_session: str | None = Cookie(default=None)):
+        try:
+            db, _, active, _ = customer_context(aegis_customer_session)
+            try:
+                subscription = db.scalar(select(Subscription).where(
+                    Subscription.workspace_id == active.workspace_id
+                ))
+                invoices = db.scalars(select(Invoice).where(
+                    Invoice.workspace_id == active.workspace_id
+                ).order_by(Invoice.issued_at.desc()).limit(20)).all()
+                return {
+                    "checkout_configured": StripeCheckout().configured,
+                    "subscription": None if subscription is None else {
+                        "status": subscription.status,
+                        "amount_pence": subscription.amount_pence,
+                        "currency": subscription.currency,
+                        "starts_at": subscription.starts_at.isoformat()
+                        if subscription.starts_at else None,
+                        "renews_at": subscription.renews_at.isoformat()
+                        if subscription.renews_at else None,
+                    },
+                    "invoices": [{
+                        "id": invoice.id,
+                        "status": invoice.status,
+                        "amount_pence": invoice.amount_pence,
+                        "currency": invoice.currency,
+                        "receipt_url": invoice.receipt_url,
+                        "issued_at": invoice.issued_at.isoformat(),
+                    } for invoice in invoices],
+                }
+            finally:
+                db.close()
+        except Exception as error:
+            return error_response(error)
+
+    @router.post("/billing/checkout")
+    def start_checkout(
+        aegis_customer_session: str | None = Cookie(default=None),
+        x_csrf_token: str | None = Header(default=None),
+    ):
+        try:
+            db, _, active, user = customer_context(
+                aegis_customer_session, x_csrf_token, require_csrf=True
+            )
+            try:
+                if user.role != Role.OWNER:
+                    raise PermissionError("owner_access_required")
+                existing = db.scalar(select(Subscription).where(
+                    Subscription.workspace_id == active.workspace_id
+                ))
+                if existing and existing.status == "active":
+                    raise ValueError("licence_already_active")
+                provider = StripeCheckout()
+                created = provider.create_session(active.workspace_id, user.email)
+                BillingService(db).create_pending(
+                    active.workspace_id, "stripe", created["id"]
+                )
+                db.commit()
+                return {"checkout_url": created["url"]}
+            finally:
+                db.close()
+        except Exception as error:
+            return error_response(error)
 
     @router.post("/password-reset/request")
     def request_password_reset(body: PasswordResetRequest):

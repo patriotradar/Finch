@@ -41,6 +41,8 @@ from core.database import build_session_factory
 from web.customer_api import build_customer_router
 from core.controls import ControlService
 from core.owner_assistant import OwnerConversationService, build_daily_briefing
+from core.billing import BillingService
+from core.stripe_checkout import StripeCheckout
 from sales.outreach_policy import OptOutTokens, OutreachPolicy
 from messaging.account_mailer import AccountMailer
 import yaml
@@ -489,6 +491,37 @@ async def unsubscribe(token: str = ""):
         "<h1>You have been opted out</h1>"
         "<p>Aegis will not send further outreach to this address.</p>"
     )
+
+
+@app.post("/api/billing/stripe/webhook")
+async def stripe_webhook(request: Request):
+    raw = await request.body()
+    try:
+        event = StripeCheckout().verify_event(
+            raw, request.headers.get("stripe-signature", "")
+        )
+        event_type = event.get("type")
+        obj = ((event.get("data") or {}).get("object") or {})
+        with db_session_factory() as session:
+            billing = BillingService(session)
+            if event_type == "checkout.session.completed" and obj.get("payment_status") == "paid":
+                billing.record_payment(
+                    "stripe",
+                    str(event["id"]),
+                    str(obj["id"]),
+                    str(obj.get("payment_intent") or obj["id"]),
+                    int(obj.get("amount_total") or 0),
+                    str(obj.get("currency") or ""),
+                    payload={"checkout_session_id": obj.get("id")},
+                )
+            elif event_type == "checkout.session.async_payment_failed":
+                billing.payment_failed(str(event["id"]), str(obj["id"]), {
+                    "checkout_session_id": obj.get("id"),
+                })
+            session.commit()
+    except (ValueError, KeyError, LookupError, RuntimeError):
+        return JSONResponse({"error": "invalid_webhook"}, status_code=400)
+    return {"received": True}
 
 
 @app.get("/api/admin/dashboard")

@@ -111,3 +111,24 @@ def test_workspace_export_is_tenant_scoped_and_cancellation_revokes_session(monk
         cancelled = api.post("/api/account/cancel", headers={"X-CSRF-Token": csrf})
         assert cancelled.status_code == 200
         assert api.get("/api/account/session").status_code == 401
+
+
+def test_owner_can_start_fixed_price_checkout(monkeypatch):
+    monkeypatch.setattr(
+        "web.customer_api.StripeCheckout.create_session",
+        lambda self, workspace_id, email: {
+            "id": "cs_test_workspace",
+            "url": "https://checkout.stripe.com/c/pay/test",
+        },
+    )
+    with client(monkeypatch) as api:
+        csrf = verified_login(api)
+        checkout = api.post(
+            "/api/account/billing/checkout",
+            headers={"X-CSRF-Token": csrf},
+        )
+        assert checkout.status_code == 200
+        assert checkout.json()["checkout_url"].startswith("https://checkout.stripe.com/")
+        billing = api.get("/api/account/billing").json()
+        assert billing["subscription"]["status"] == "pending"
+        assert billing["subscription"]["amount_pence"] == 99500
