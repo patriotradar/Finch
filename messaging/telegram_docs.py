@@ -15,7 +15,11 @@ class FinchDocs:
 
     def __init__(self, docs_dir="./data/documents/", crm=None):
         self.docs_dir = Path(docs_dir)
-        self.docs_dir.mkdir(parents=True, exist_ok=True)
+        try:
+            self.docs_dir.mkdir(parents=True, exist_ok=True)
+        except Exception:
+            self.docs_dir = Path("/tmp/finch-docs")
+            self.docs_dir.mkdir(parents=True, exist_ok=True)
         self.crm = crm
         self.registry = self._load_registry()
 

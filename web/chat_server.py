@@ -48,14 +48,28 @@ app = FastAPI(title="Finch Security", version="2.0")
 config = load_config()
 ADMIN_PASSWORD = os.environ.get("FINCH_ADMIN_PASSWORD", "finch")
 
-# Vercel (and other serverless hosts) only allow writes under /tmp
+# Serverless hosts (Vercel/Lambda) only allow writes under /tmp
+_IS_SERVERLESS = bool(
+    os.environ.get("VERCEL")
+    or os.environ.get("AWS_LAMBDA_FUNCTION_NAME")
+    or os.environ.get("VERCEL_ENV")
+)
+if _IS_SERVERLESS:
+    os.environ.setdefault("FINCH_MEMORY_BACKEND", "json")
+
 _DATA_ROOT = Path(os.environ.get("FINCH_DATA_DIR") or (
-    "/tmp/finch-data" if os.environ.get("VERCEL") else "./data"
+    "/tmp/finch-data" if _IS_SERVERLESS else "./data"
 ))
-_DATA_ROOT.mkdir(parents=True, exist_ok=True)
-(_DATA_ROOT / "memory").mkdir(exist_ok=True)
-(_DATA_ROOT / "clients").mkdir(exist_ok=True)
-(_DATA_ROOT / "sessions").mkdir(exist_ok=True)
+try:
+    _DATA_ROOT.mkdir(parents=True, exist_ok=True)
+    for _sub in ("memory", "clients", "sessions", "documents"):
+        (_DATA_ROOT / _sub).mkdir(exist_ok=True)
+except Exception as e:
+    print(f"[Finch] data root setup failed: {e}")
+    _DATA_ROOT = Path("/tmp/finch-data")
+    _DATA_ROOT.mkdir(parents=True, exist_ok=True)
+    for _sub in ("memory", "clients", "sessions", "documents"):
+            (_DATA_ROOT / _sub).mkdir(exist_ok=True)
 
 pricing = PricingEngine(config.get("pricing", {}))
 _mem_cfg = config.get("memory", {}) or {}
@@ -65,7 +79,7 @@ memory = MemoryStore(
 )
 conversation_engine = SalesConversation(None, pricing, memory, config)
 crm = CRM(data_dir=str(_DATA_ROOT / "clients"))
-docs_engine = FinchDocs()
+docs_engine = FinchDocs(docs_dir=str(_DATA_ROOT / "documents"))
 
 # Seed demo CRM on empty cloud disks
 try:
