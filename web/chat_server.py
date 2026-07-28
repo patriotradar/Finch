@@ -37,6 +37,8 @@ from messaging.mail_store import MailStore
 from sales.pipeline import LeadPipeline
 from web import admin_brain
 from core.security import LoginThrottle, OwnerAuth, SESSION_COOKIE
+from core.database import build_session_factory
+from web.customer_api import build_customer_router
 import yaml
 
 
@@ -49,6 +51,7 @@ def load_config():
 
 
 app = FastAPI(title="Aegis", version="2.0")
+app.include_router(build_customer_router(build_session_factory()))
 config = load_config()
 owner_auth = OwnerAuth.from_environment()
 login_throttle = LoginThrottle()

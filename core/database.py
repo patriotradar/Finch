@@ -7,6 +7,7 @@ from contextlib import contextmanager
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
+from sqlalchemy.pool import StaticPool
 
 
 class Base(DeclarativeBase):
@@ -29,7 +30,8 @@ def database_url() -> str:
 def build_engine(url: str | None = None):
     resolved = url or database_url()
     connect_args = {"check_same_thread": False} if resolved.startswith("sqlite") else {}
-    return create_engine(resolved, pool_pre_ping=True, connect_args=connect_args)
+    options = {"poolclass": StaticPool} if resolved in {"sqlite://", "sqlite:///:memory:"} else {}
+    return create_engine(resolved, pool_pre_ping=True, connect_args=connect_args, **options)
 
 
 def build_session_factory(engine=None):
@@ -47,4 +49,3 @@ def session_scope(factory=None):
         raise
     finally:
         session.close()
-
