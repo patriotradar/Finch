@@ -40,6 +40,7 @@ from core.security import LoginThrottle, OwnerAuth, SESSION_COOKIE
 from core.database import build_session_factory
 from web.customer_api import build_customer_router
 from core.controls import ControlService
+from core.owner_assistant import OwnerConversationService, build_daily_briefing
 from sales.outreach_policy import OptOutTokens, OutreachPolicy
 from messaging.account_mailer import AccountMailer
 import yaml
@@ -144,6 +145,49 @@ def _save_session(kind: str, sid: str, state):
         path.write_text(json.dumps(state, default=str), encoding="utf-8")
     except Exception as e:
         print(f"[Finch] session save failed: {e}")
+
+
+def _load_admin_session(admin_id: str):
+    cached = admin_sessions.get(admin_id)
+    if cached is not None:
+        return cached
+    try:
+        with db_session_factory() as db:
+            _, messages = OwnerConversationService(db).load(admin_id)
+            db.commit()
+        state = {"history": messages}
+    except Exception as error:
+        print(f"[Aegis] owner history database read failed: {error}")
+        state = _load_session("a", admin_id) or {"history": []}
+    admin_sessions[admin_id] = state
+    return state
+
+
+def _save_admin_session(admin_id: str, state: dict):
+    history = list(state.get("history") or [])[-80:]
+    state["history"] = history
+    try:
+        with db_session_factory() as db:
+            record, _ = OwnerConversationService(db).load(admin_id)
+            OwnerConversationService(db).save(record, history)
+            db.commit()
+    except Exception as error:
+        print(f"[Aegis] owner history database write failed: {error}")
+        _save_session("a", admin_id, state)
+
+
+def _owner_opening(admin_id: str, state: dict) -> str:
+    try:
+        with db_session_factory() as db:
+            service = OwnerConversationService(db)
+            record, persisted = service.load(admin_id)
+            reply = service.daily_opening(record, persisted)
+            db.commit()
+        state["history"] = persisted
+        return reply
+    except Exception as error:
+        print(f"[Aegis] owner briefing database read failed: {error}")
+        return admin_brain.opening_line()
 
 
 # ── STATIC FILES ─────────────────────────────────────────────────────
@@ -423,6 +467,12 @@ async def admin_pause_harold(request: Request):
     return {"harold_paused": paused}
 
 
+@app.get("/api/admin/briefing")
+async def admin_briefing():
+    with db_session_factory() as session:
+        return {"briefing": build_daily_briefing(session), "generated_at": datetime.now().isoformat()}
+
+
 @app.get("/unsubscribe")
 async def unsubscribe(token: str = ""):
     try:
@@ -612,21 +662,17 @@ async def api_admin_chat(request: Request):
     message = (body.get("content") or "").strip()
     start = bool(body.get("start"))
 
-    session = admin_sessions.get(admin_id) or _load_session("a", admin_id) or {"history": []}
+    session = _load_admin_session(admin_id)
     admin_sessions[admin_id] = session
 
     if start or not message:
-        reply = admin_brain.opening_line()
-        # Don't pollute history with every tab open; only seed if empty
-        if not session.get("history"):
-            session["history"] = [{"role": "finch", "content": reply}]
-            _save_session("a", admin_id, session)
-        else:
-            # Returning partner — warm, brief, not repeating full status
-            reply = admin_brain.opening_line()
+        reply = _owner_opening(admin_id, session)
+        admin_sessions[admin_id] = session
         return JSONResponse({"type": "message", "content": reply, "sender": "finch"})
 
-    session.setdefault("history", []).append({"role": "user", "content": message})
+    session.setdefault("history", []).append({
+        "role": "user", "content": message, "created_at": datetime.now().isoformat()
+    })
 
     # Commands first
     cmd = admin_brain.handle_command(
@@ -651,10 +697,12 @@ async def api_admin_chat(request: Request):
             memory=memory,
         )
 
-    session["history"].append({"role": "finch", "content": reply})
-    session["history"] = session["history"][-40:]
+    session["history"].append({
+        "role": "finch", "content": reply, "created_at": datetime.now().isoformat()
+    })
+    session["history"] = session["history"][-80:]
     admin_sessions[admin_id] = session
-    _save_session("a", admin_id, session)
+    _save_admin_session(admin_id, session)
     return JSONResponse({"type": "message", "content": reply, "sender": "finch"})
 
 
@@ -883,11 +931,12 @@ async def admin_websocket(websocket: WebSocket, admin_id: str):
         await websocket.close(code=4401, reason="Authentication required")
         return
     await websocket.accept()
-    session = admin_sessions.get(admin_id) or _load_session("a", admin_id) or {"history": []}
+    session = _load_admin_session(admin_id)
     admin_sessions[admin_id] = session
+    opening = _owner_opening(admin_id, session)
     await websocket.send_text(json.dumps({
         "type": "message",
-        "content": admin_brain.opening_line(),
+        "content": opening,
         "sender": "finch",
     }))
     try:
@@ -897,7 +946,10 @@ async def admin_websocket(websocket: WebSocket, admin_id: str):
             user_message = (msg.get("content") or "").strip()
             if not user_message:
                 continue
-            session.setdefault("history", []).append({"role": "user", "content": user_message})
+            session.setdefault("history", []).append({
+                "role": "user", "content": user_message,
+                "created_at": datetime.now().isoformat(),
+            })
             cmd = admin_brain.handle_command(
                 user_message,
                 crm=crm,
@@ -919,10 +971,13 @@ async def admin_websocket(websocket: WebSocket, admin_id: str):
                     mail_store=mail_store,
                     memory=memory,
                 )
-            session["history"].append({"role": "finch", "content": reply})
-            session["history"] = session["history"][-40:]
+            session["history"].append({
+                "role": "finch", "content": reply,
+                "created_at": datetime.now().isoformat(),
+            })
+            session["history"] = session["history"][-80:]
             admin_sessions[admin_id] = session
-            _save_session("a", admin_id, session)
+            _save_admin_session(admin_id, session)
             await websocket.send_text(json.dumps({
                 "type": "message", "content": reply, "sender": "finch",
             }))
