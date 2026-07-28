@@ -148,6 +148,20 @@ class Evidence(Base):
     metadata_json: Mapped[dict] = mapped_column(JSON, default=dict)
 
 
+class MonitoringRequest(Base):
+    __tablename__ = "monitoring_requests"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid4)
+    workspace_id: Mapped[str] = mapped_column(ForeignKey("workspaces.id", ondelete="CASCADE"), index=True)
+    asset_id: Mapped[str] = mapped_column(ForeignKey("approved_assets.id", ondelete="CASCADE"), index=True)
+    source_type: Mapped[str] = mapped_column(String(40))
+    method: Mapped[str] = mapped_column(String(12))
+    target: Mapped[str] = mapped_column(Text)
+    response_status: Mapped[int | None] = mapped_column(Integer)
+    outcome: Mapped[str] = mapped_column(String(32))
+    stopped_reason: Mapped[str | None] = mapped_column(String(120))
+    requested_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
 class Report(Base):
     __tablename__ = "reports"
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid4)
