@@ -14,6 +14,10 @@
 - £995 annual licence and four-sale goal without guarantees.
 - Durable sourced leads, suppression, opt-out and bounce pause.
 - Professional landing page, workspace, brand exports and sales pack.
+- Public and private route smoke checks, clean migration build and visual
+  verification of the complete presentation/PDF pack.
+
+See `docs/BUILD_COMPLETION.md` for the evidence record and exact external gates.
 
 ## External-service work still required
 
