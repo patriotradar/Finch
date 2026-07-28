@@ -134,22 +134,95 @@ class MailStore:
         ]
         self._save()
 
+    def _smtp_cfg_path(self) -> Path:
+        return self.path.parent / "smtp_config.json"
+
+    def _load_smtp_file(self) -> Dict[str, Any]:
+        path = self._smtp_cfg_path()
+        if not path.exists():
+            return {}
+        try:
+            return json.loads(path.read_text(encoding="utf-8")) or {}
+        except Exception:
+            return {}
+
+    def smtp_credentials(self) -> Dict[str, str]:
+        """Env wins; fallback to data-dir config (in-app setup)."""
+        file_cfg = self._load_smtp_file()
+        email = (os.environ.get("FINCH_EMAIL") or file_cfg.get("email") or "").strip()
+        password = (os.environ.get("FINCH_EMAIL_PASSWORD") or file_cfg.get("password") or "").strip()
+        host = (os.environ.get("FINCH_SMTP_HOST") or file_cfg.get("smtp_host") or "smtp.gmail.com").strip()
+        port = str(os.environ.get("FINCH_SMTP_PORT") or file_cfg.get("smtp_port") or "587").strip()
+        source = "env" if os.environ.get("FINCH_EMAIL") and os.environ.get("FINCH_EMAIL_PASSWORD") else (
+            "file" if email and password else "none"
+        )
+        return {
+            "email": email,
+            "password": password,
+            "smtp_host": host,
+            "smtp_port": port,
+            "source": source,
+        }
+
     def smtp_ready(self) -> bool:
-        return bool(os.environ.get("FINCH_EMAIL") and os.environ.get("FINCH_EMAIL_PASSWORD"))
+        c = self.smtp_credentials()
+        return bool(c["email"] and c["password"])
 
     def config_status(self) -> Dict[str, Any]:
-        addr = os.environ.get("FINCH_EMAIL") or ""
+        c = self.smtp_credentials()
         return {
             "configured": self.smtp_ready(),
-            "from_address": addr or None,
-            "smtp_host": os.environ.get("FINCH_SMTP_HOST", "smtp.gmail.com"),
+            "from_address": c["email"] or None,
+            "smtp_host": c["smtp_host"],
+            "source": c["source"],
             "note": (
-                "SMTP live — queued mail can send."
+                f"SMTP live via {c['source']} — queued mail can send from {c['email']}."
                 if self.smtp_ready()
-                else "Set FINCH_EMAIL + FINCH_EMAIL_PASSWORD on Vercel to send for real. "
-                     "Until then, drafts and queue still work as a full local outbox."
+                else "Connect Gmail below (or set FINCH_EMAIL + FINCH_EMAIL_PASSWORD on Vercel). "
+                     "Drafts and queue still work without SMTP."
             ),
         }
+
+    def save_smtp_config(
+        self,
+        email: str,
+        password: str,
+        *,
+        smtp_host: str = "smtp.gmail.com",
+        smtp_port: str = "587",
+        test: bool = True,
+    ) -> Dict[str, Any]:
+        email = (email or "").strip()
+        password = (password or "").replace(" ", "").strip()
+        smtp_host = (smtp_host or "smtp.gmail.com").strip()
+        smtp_port = str(smtp_port or "587").strip()
+        if not email or not password:
+            return {"ok": False, "error": "email_and_password_required"}
+        if test:
+            try:
+                ctx = ssl.create_default_context()
+                with smtplib.SMTP(smtp_host, int(smtp_port), timeout=20) as s:
+                    s.ehlo()
+                    s.starttls(context=ctx)
+                    s.ehlo()
+                    s.login(email, password)
+            except Exception as e:
+                return {"ok": False, "error": f"login_failed: {e}"}
+        cfg = {
+            "email": email,
+            "password": password,
+            "smtp_host": smtp_host,
+            "smtp_port": smtp_port,
+            "updated_at": _now(),
+        }
+        self._smtp_cfg_path().write_text(json.dumps(cfg, indent=2), encoding="utf-8")
+        return {"ok": True, **self.config_status()}
+
+    def clear_smtp_config(self) -> Dict[str, Any]:
+        path = self._smtp_cfg_path()
+        if path.exists():
+            path.unlink()
+        return {"ok": True, **self.config_status()}
 
     def summary(self) -> Dict[str, int]:
         folders = {"inbox": 0, "outbox": 0, "drafts": 0, "sent": 0}
@@ -199,7 +272,7 @@ class MailStore:
             "folder": "drafts" if as_draft else "outbox",
             "direction": "outbound",
             "status": "draft" if as_draft else "queued",
-            "from": from_addr or os.environ.get("FINCH_EMAIL") or "kane@aegis.security",
+            "from": from_addr or self.smtp_credentials()["email"] or "kane@aegis.security",
             "to": (to or "").strip(),
             "subject": (subject or "").strip() or "(no subject)",
             "body": body or "",
@@ -249,10 +322,11 @@ class MailStore:
                 "error": "smtp_not_configured",
                 "message": m,
             }
-        from_addr = os.environ.get("FINCH_EMAIL")
-        passwd = os.environ.get("FINCH_EMAIL_PASSWORD")
-        host = os.environ.get("FINCH_SMTP_HOST", "smtp.gmail.com")
-        port = int(os.environ.get("FINCH_SMTP_PORT", "587"))
+        creds = self.smtp_credentials()
+        from_addr = creds["email"]
+        passwd = creds["password"]
+        host = creds["smtp_host"]
+        port = int(creds["smtp_port"] or "587")
         try:
             msg = MIMEMultipart()
             msg["From"] = f"Kane <{from_addr}>"
@@ -292,7 +366,7 @@ class MailStore:
             "direction": "inbound",
             "status": "unread",
             "from": from_addr,
-            "to": to or os.environ.get("FINCH_EMAIL") or "kane@aegis.security",
+            "to": to or self.smtp_credentials()["email"] or "kane@aegis.security",
             "subject": subject,
             "body": body,
             "created_at": _now(),

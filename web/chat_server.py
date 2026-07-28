@@ -568,6 +568,45 @@ async def admin_delete_email(msg_id: str):
     return JSONResponse({"ok": ok})
 
 
+@app.post("/api/admin/mail/config")
+async def admin_mail_config(request: Request):
+    """Save Gmail SMTP (or any SMTP) credentials. Tested before save."""
+    body = await request.json()
+    action = (body.get("action") or "save").lower()
+    if action == "clear":
+        return JSONResponse(mail_store.clear_smtp_config())
+    result = mail_store.save_smtp_config(
+        email=body.get("email") or "",
+        password=body.get("password") or body.get("app_password") or "",
+        smtp_host=body.get("smtp_host") or "smtp.gmail.com",
+        smtp_port=str(body.get("smtp_port") or "587"),
+        test=body.get("test", True) is not False,
+    )
+    return JSONResponse(result)
+
+
+@app.post("/api/admin/mail/test")
+async def admin_mail_test():
+    """Send a short test message to the configured From address."""
+    cfg = mail_store.config_status()
+    if not cfg.get("configured"):
+        return JSONResponse({"ok": False, "error": "smtp_not_configured"}, status_code=400)
+    to = cfg.get("from_address")
+    draft = mail_store.compose(
+        to=to,
+        subject="Aegis SMTP test — Kane is online",
+        body=(
+            "Hi,\n\nThis is a test from your Aegis command HQ. "
+            "If you're reading this, outbound email is working.\n\n"
+            "— Kane"
+        ),
+        company="Aegis",
+        as_draft=True,
+    )
+    result = mail_store.queue_send(draft["id"])
+    return JSONResponse(result)
+
+
 
 
 @app.get("/api/admin/leads")
