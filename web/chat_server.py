@@ -259,6 +259,27 @@ async def aegis_wordmark():
     return FileResponse(Path(__file__).parent / "aegis-wordmark.svg", media_type="image/svg+xml")
 
 
+@app.get("/brand/{asset_name}")
+async def aegis_brand_asset(asset_name: str):
+    allowed = {
+        "aegis-wordmark-light.svg": "image/svg+xml",
+        "aegis-wordmark-dark.svg": "image/svg+xml",
+        "aegis-icon-64.png": "image/png",
+        "aegis-icon-192.png": "image/png",
+        "aegis-icon-512.png": "image/png",
+        "aegis-email-signature.png": "image/png",
+    }
+    media_type = allowed.get(asset_name)
+    if media_type is None:
+        return JSONResponse({"error": "not_found"}, status_code=404)
+    return FileResponse(Path(__file__).parent / asset_name, media_type=media_type)
+
+
+@app.get("/favicon.ico")
+async def favicon():
+    return FileResponse(Path(__file__).parent / "favicon.ico", media_type="image/x-icon")
+
+
 @app.get("/legal/privacy", response_class=HTMLResponse)
 async def privacy_notice():
     return HTMLResponse((Path(__file__).parent / "privacy.html").read_text(encoding="utf-8"))

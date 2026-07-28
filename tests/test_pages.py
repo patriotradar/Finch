@@ -20,3 +20,9 @@ def test_public_customer_and_legal_pages(monkeypatch, tmp_path):
         assert client.get("/legal/terms").status_code == 200
         assert client.get("/legal/acceptable-use").status_code == 200
         assert client.get("/brand/aegis-mark.svg").status_code == 200
+        assert client.get("/brand/aegis-wordmark-light.svg").status_code == 200
+        assert client.get("/brand/aegis-wordmark-dark.svg").status_code == 200
+        assert client.get("/brand/aegis-icon-192.png").headers["content-type"] == "image/png"
+        assert client.get("/brand/aegis-icon-512.png").status_code == 200
+        assert client.get("/brand/aegis-email-signature.png").status_code == 200
+        assert client.get("/favicon.ico").status_code == 200

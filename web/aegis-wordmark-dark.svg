@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 260 64" role="img" aria-labelledby="title">
+  <title id="title">Aegis</title>
+  <path fill="#07130f" stroke="#274238" stroke-width="1" d="M32 2 56 11v18c0 15.4-9.7 27.1-24 33C17.7 56.1 8 44.4 8 29V11L32 2Z"/>
+  <path fill="#34d399" d="m32 10 16 6v13c0 10.7-6.2 19.2-16 24-9.8-4.8-16-13.3-16-24V16l16-6Z"/>
+  <path fill="#07130f" d="M31.9 17 43 43h-7.1l-1.7-4.5h-9L23.5 43h-7l11.2-26h4.2Zm-4.4 15.4h4.4l-2.2-6.2-2.2 6.2Z"/>
+  <text x="76" y="43" fill="#e8f2ee" font-family="Inter,Segoe UI,sans-serif" font-size="38" font-weight="700" letter-spacing="-1">Aegis</text>
+</svg>
