@@ -257,7 +257,7 @@
     border:none;background:none;color:var(--dim);font-size:10px;font-weight:650;
     display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;
   }
-  .botnav button .ic{font-size:20px;line-height:1}
+  .botnav button .ic{display:flex;align-items:center;justify-content:center;height:24px;line-height:1}.botnav button .ic svg{display:block}
   .botnav button.on{color:var(--green)}
   .botnav .nb{
     position:absolute;top:8px;right:calc(25% + 8px);min-width:16px;height:16px;padding:0 4px;
@@ -331,13 +331,13 @@
   </div>
 
   <nav class="botnav" id="botnav">
-    <button type="button" data-tab="home" class="on"><span class="ic">⌂</span>Home</button>
+    <button type="button" data-tab="home" class="on"><span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10.5 12 3l9 7.5V21a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1v-10.5z"/></svg></span>Home</button>
     <button type="button" data-tab="mail" style="position:relative">
-      <span class="ic">✉</span>Mail
+      <span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 7 9-7"/></svg></span>Mail
       <span class="nb" id="mailBadge">0</span>
     </button>
-    <button type="button" data-tab="chat"><span class="ic">✦</span>Harold</button>
-    <button type="button" data-tab="more"><span class="ic">☰</span>More</button>
+    <button type="button" data-tab="chat"><span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/></svg></span>Harold</button>
+    <button type="button" data-tab="more"><span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></span>More</button>
   </nav>
 </div>
 <div class="toast" id="toast"></div>
