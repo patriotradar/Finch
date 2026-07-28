@@ -226,6 +226,30 @@ class Subscription(Base):
     cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
+class PaymentEvent(Base):
+    __tablename__ = "payment_events"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid4)
+    provider: Mapped[str] = mapped_column(String(40))
+    provider_event_id: Mapped[str] = mapped_column(String(200), unique=True)
+    event_type: Mapped[str] = mapped_column(String(80))
+    payload: Mapped[dict] = mapped_column(JSON, default=dict)
+    processed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class Invoice(Base):
+    __tablename__ = "invoices"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid4)
+    workspace_id: Mapped[str] = mapped_column(ForeignKey("workspaces.id", ondelete="CASCADE"), index=True)
+    subscription_id: Mapped[str] = mapped_column(ForeignKey("subscriptions.id", ondelete="CASCADE"), index=True)
+    provider_reference: Mapped[str] = mapped_column(String(200), unique=True)
+    currency: Mapped[str] = mapped_column(String(3), default="GBP")
+    amount_pence: Mapped[int] = mapped_column(Integer)
+    status: Mapped[str] = mapped_column(String(32))
+    receipt_url: Mapped[str | None] = mapped_column(Text)
+    issued_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
 class OutreachActivity(Base):
     __tablename__ = "outreach_activity"
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid4)

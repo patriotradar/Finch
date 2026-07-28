@@ -12,13 +12,14 @@ WEB_CHAT_URL = os.environ.get("FINCH_WEB_CHAT_URL", "https://finch.security/chat
 
 
 class OutreachEngine:
-    def __init__(self, config=None):
+    def __init__(self, config=None, policy=None):
         self.config = config or {}
         self.smtp_host = self.config.get("smtp_host", "smtp.gmail.com")
         self.smtp_port = self.config.get("smtp_port", 587)
         self.daily_limit = min(int(self.config.get("daily_limit", 20)), 20)
         self.sent_today = 0
         self.followup_sequence = self.config.get("followup_sequence", [2, 5, 10])
+        self.policy = policy
 
     def craft_initial_email(self, lead):
         company = lead.get("company", "your organization")
@@ -58,7 +59,10 @@ class OutreachEngine:
         ]
         return templates[min(seq - 1, len(templates) - 1)]
 
-    def send_email(self, to_address, content, from_address=None, password=None):
+    def send_email(self, to_address, content, from_address=None, password=None, *, approved=False):
+        if approved is not True:
+            print("[Aegis] Outreach send blocked: policy approval required.")
+            return False
         from_addr = from_address or os.environ.get("FINCH_EMAIL")
         passwd = password or os.environ.get("FINCH_EMAIL_PASSWORD")
         if not from_addr or not passwd:
@@ -84,6 +88,8 @@ class OutreachEngine:
             return False
 
     def process_outreach_queue(self, leads, force=False):
+        if self.policy is None:
+            return ["Blocked: outreach policy is not configured"]
         actions = []
         now = datetime.now()
         delay = self.config.get("min_delay_between", 120)
@@ -93,7 +99,18 @@ class OutreachEngine:
                 if self.sent_today >= self.daily_limit and not force:
                     break
                 email = self.craft_initial_email(lead)
-                if self.send_email(lead.get("contact_email", ""), email):
+                allowed, reason = self.policy.can_contact(
+                    lead.get("company", ""),
+                    lead.get("contact_email", ""),
+                    lead.get("contact_source", ""),
+                    lead.get("business_type", ""),
+                    consent=bool(lead.get("consent")),
+                    followup=False,
+                )
+                if not allowed:
+                    actions.append(f"Blocked ({reason}) → {lead.get('company', '?')}")
+                    continue
+                if self.send_email(lead.get("contact_email", ""), email, approved=True):
                     history.append({"type": "initial", "sent_at": now.isoformat(), "subject": email["subject"]})
                     lead["outreach"] = history
                     lead["stage"] = "outreached"
@@ -105,7 +122,18 @@ class OutreachEngine:
             seq = len(history)
             if seq <= len(self.followup_sequence) and days >= self.followup_sequence[seq - 1]:
                 email = self.craft_followup_email(lead, seq)
-                if self.send_email(lead.get("contact_email", ""), email):
+                allowed, reason = self.policy.can_contact(
+                    lead.get("company", ""),
+                    lead.get("contact_email", ""),
+                    lead.get("contact_source", ""),
+                    lead.get("business_type", ""),
+                    consent=bool(lead.get("consent")),
+                    followup=True,
+                )
+                if not allowed:
+                    actions.append(f"Blocked ({reason}) → {lead.get('company', '?')}")
+                    continue
+                if self.send_email(lead.get("contact_email", ""), email, approved=True):
                     history.append({"type": f"followup_{seq}", "sent_at": now.isoformat(), "subject": email["subject"]})
                     lead["stage"] = "followed_up"
                     actions.append(f"Follow-up {seq} → {lead['company']}")

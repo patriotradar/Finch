@@ -39,6 +39,8 @@ from web import admin_brain
 from core.security import LoginThrottle, OwnerAuth, SESSION_COOKIE
 from core.database import build_session_factory
 from web.customer_api import build_customer_router
+from core.controls import ControlService
+from sales.outreach_policy import OptOutTokens, OutreachPolicy
 import yaml
 
 
@@ -51,7 +53,8 @@ def load_config():
 
 
 app = FastAPI(title="Aegis", version="2.0")
-app.include_router(build_customer_router(build_session_factory()))
+db_session_factory = build_session_factory()
+app.include_router(build_customer_router(db_session_factory))
 config = load_config()
 owner_auth = OwnerAuth.from_environment()
 login_throttle = LoginThrottle()
@@ -362,6 +365,44 @@ async def admin_logout():
     response = JSONResponse({"authenticated": False})
     response.delete_cookie(SESSION_COOKIE, path="/", samesite="strict")
     return response
+
+
+@app.get("/api/admin/controls")
+async def admin_controls():
+    with db_session_factory() as session:
+        return {"harold_paused": ControlService(session).is_paused()}
+
+
+@app.post("/api/admin/controls/pause")
+async def admin_pause_harold(request: Request):
+    body = await request.json()
+    paused = body.get("paused")
+    if not isinstance(paused, bool):
+        return JSONResponse({"error": "paused_boolean_required"}, status_code=400)
+    with db_session_factory() as session:
+        ControlService(session).set_paused(
+            paused, changed_by="owner", reason=str(body.get("reason") or "")[:200]
+        )
+        session.commit()
+    return {"harold_paused": paused}
+
+
+@app.get("/unsubscribe")
+async def unsubscribe(token: str = ""):
+    try:
+        email = OptOutTokens().validate(token)
+    except Exception:
+        return HTMLResponse(
+            "<h1>Invalid opt-out link</h1><p>No preferences were changed.</p>",
+            status_code=400,
+        )
+    with db_session_factory() as session:
+        OutreachPolicy(session).suppress(email, "opt_out", "one_click")
+        session.commit()
+    return HTMLResponse(
+        "<h1>You have been opted out</h1>"
+        "<p>Aegis will not send further outreach to this address.</p>"
+    )
 
 
 @app.get("/api/admin/dashboard")

@@ -21,6 +21,7 @@ from core.models import (
     AssetSnapshot, CustomerAlert, Evidence, MonitoringRequest, Observation,
     ObservationStatus, utcnow,
 )
+from core.controls import ControlService
 from core.tenant import require_monitorable_asset
 
 
@@ -55,6 +56,8 @@ class PassiveMonitor:
         ]
 
     def monitor_asset(self, workspace_id: str, asset_id: str) -> list[Observation]:
+        if ControlService(self.session).is_paused():
+            raise PermissionError("harold_paused")
         asset = require_monitorable_asset(self.session, workspace_id, asset_id)
         observations: list[Observation] = []
         for collector in self.collectors[:MAX_REQUESTS_PER_RUN]:
