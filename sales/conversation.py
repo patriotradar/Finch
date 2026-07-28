@@ -2,7 +2,7 @@
 Customer conversation engine for Aegis.
 
 Handles the full sales flow:
-  Greeting → Qualification → Pain Discovery → Live Demo → Objections → Pricing → Close
+  Greeting → Qualification → Needs Discovery → Product Overview → Objections → Pricing → Close
 
 Harold identifies himself accurately as Aegis software. He explains the product,
 onboarding boundaries, and approved price without inventing findings or pressuring
@@ -49,7 +49,6 @@ class SalesConversation:
                 "timeline": None, "decision_maker": False,
             },
             "objections_raised": [], "objections_resolved": [],
-            "demo_run": False, "demo_results": None,
             "price_quoted": None, "ready_to_close": False,
             "history": [],
         }
@@ -309,8 +308,8 @@ class SalesConversation:
                     f"public-information monitoring. Do you currently use a similar service?"
                 ), ConversationStage.DEMO, updates
             return (
-                f"You're exactly the right person to talk to. Give me your company's domain and "
-                f"I'll take a quick look — no charge, no commitment."
+                "You're exactly the right person to talk to. Which part of your organisation's "
+                "public exposure is hardest to keep track of today?"
             ), ConversationStage.PAIN_DISCOVERY, updates
 
         elif role in ("it_manager", "security_analyst", "devops", "engineer"):
@@ -321,8 +320,8 @@ class SalesConversation:
                     f"for your IT team to verify. What coverage do you already have?"
                 ), ConversationStage.DEMO, updates
             return (
-                f"Got it — you're on the front lines. Does your leadership know about the gaps? "
-                f"What domain should I look at?"
+                "Got it — you're on the front lines. What would make a monthly public-exposure "
+                "report useful to your team?"
             ), ConversationStage.PAIN_DISCOVERY, updates
 
         else:
@@ -332,8 +331,8 @@ class SalesConversation:
                     f"only after authority is confirmed during onboarding. What prompted you to reach out?"
                 ), ConversationStage.DEMO, updates
             return (
-                f"Appreciate that context. What's your company's website? "
-                f"I'll show you what I mean with a quick scan."
+                "Appreciate that context. What prompted you to look at public-exposure "
+                "monitoring now?"
             ), ConversationStage.PAIN_DISCOVERY, updates
 
     def _handle_pain_discovery(self, state, message):
@@ -363,27 +362,23 @@ class SalesConversation:
             ), ConversationStage.PAIN_DISCOVERY, None
 
         return (
-            f"I understand. Here's why I ask: most organizations have no idea how many doors "
-            f"they've left open. Shadow IT, forgotten servers, credentials in public repos.\n\n"
-            f"If you give me your domain, I can show you in under a minute. Otherwise, tell me "
-            f"what's on your mind and we'll go from there."
+            "I understand. Aegis is designed to help an authorised organisation keep a careful "
+            "record of public observations about assets it has approved. It does not attempt "
+            "access or claim a vulnerability from public chat.\n\n"
+            "Tell me what you need to monitor and I can explain whether Aegis fits."
         ), ConversationStage.PAIN_DISCOVERY, None
 
     def _handle_demo(self, state, message):
         domain = state["discovered"].get("domain")
-        demo_results = state.get("demo_results")
-
-        # Never invent a finished scan when no domain was provided
+        # Public chat explains the product; monitoring starts only after authorisation.
         if not domain:
             if self._is_direct_question(message):
                 return self._answer_question(message), ConversationStage.DEMO, None
             return (
-                "I haven't pointed anything at a specific perimeter yet — without a domain "
-                "I'd just be guessing. Pattern-wise, most teams have three to five times more "
-                "internet-facing stuff than they track: old staging boxes, forgotten DNS, "
-                "a SaaS admin panel nobody owns.\n\n"
-                "Give me a domain and I'll look from the outside, free and no commitment. "
-                "Or tell me the risk that actually keeps you up at night."
+                "I have not inspected any organisation from this public chat. Aegis monitors only "
+                "assets that an authorised customer adds and approves after registration. It then "
+                "records passive public information and clearly separates evidence from inference.\n\n"
+                "Tell me what you need to monitor and I can explain the workflow."
             ), ConversationStage.DEMO, None
 
         response = (

@@ -367,17 +367,6 @@ async def prospect_websocket(websocket: WebSocket, prospect_id: str):
                 if state.get("stage") == prev_stage:
                     break
 
-            if state.get("_should_demo"):
-                state["_should_demo"] = False
-                domain = state["discovered"].get("domain", "")
-                if domain:
-                    await websocket.send_text(json.dumps({"type": "status", "content": f"Running a quick scan on {domain}..."}))
-                    await asyncio.sleep(2)
-                    state["demo_results"] = {"findings": []}
-                    state["demo_run"] = True
-                    response, state = conversation_engine.handle_message(state, "scan complete")
-                    prospect_sessions[prospect_id] = state
-
             await websocket.send_text(json.dumps({
                 "type": "message", "content": response, "stage": state["stage"],
                 "ready_to_close": state.get("ready_to_close", False),
@@ -391,11 +380,11 @@ async def prospect_websocket(websocket: WebSocket, prospect_id: str):
                     or "unknown"
                 )
                 price = state.get("price_quoted") or {}
-                monthly = price.get("monthly") or price.get("monthly_price") or 0
+                annual = price.get("annual") or price.get("annual_price") or 995
                 if email:
                     pending_handoffs[email] = {
                         "company": company,
-                        "price": monthly,
+                        "price": annual,
                         "source": "web_chat",
                         "stage": state.get("stage"),
                     }
@@ -404,14 +393,14 @@ async def prospect_websocket(websocket: WebSocket, prospect_id: str):
                         deal_id = crm.add_deal(
                             company=company,
                             contact_email=email,
-                            pricing_result={"monthly_price": monthly, **price},
+                            pricing_result={"annual_price": annual, **price},
                             source="web_chat",
                         )
                         crm.update_stage(deal_id, "won", note="Closed via web chat")
                     except Exception as e:
                         print(f"[Finch] CRM write failed: {e}")
                 memory.remember(
-                    f"Closed deal via web chat: {json.dumps(state['discovered'])} email={email} price={monthly}",
+                    f"Closed deal via web chat: {json.dumps(state['discovered'])} email={email} annual_price={annual}",
                     metadata={"type": "closed_deal", "prospect_id": prospect_id}
                 )
 
@@ -639,23 +628,6 @@ async def api_prospect_chat(request: Request):
         if state.get("stage") == prev_stage:
             break
 
-    if state.get("_should_demo"):
-        state["_should_demo"] = False
-        domain = state.get("discovered", {}).get("domain", "")
-        status = f"Running a quick scan on {domain}..." if domain else "Running a quick scan..."
-        state["demo_results"] = {"findings": []}
-        state["demo_run"] = True
-        response, state = conversation_engine.handle_message(state, "scan complete")
-        prospect_sessions[prospect_id] = state
-        _save_session("p", prospect_id, state)
-        return JSONResponse({
-            "type": "message",
-            "content": response,
-            "stage": state.get("stage"),
-            "status": status,
-            "ready_to_close": state.get("ready_to_close", False),
-        })
-
     if state.get("ready_to_close"):
         email = _extract_email(message) or state.get("discovered", {}).get("email")
         company = (
@@ -664,11 +636,11 @@ async def api_prospect_chat(request: Request):
             or "unknown"
         )
         price = state.get("price_quoted") or {}
-        monthly = price.get("monthly") or price.get("monthly_price") or 0
+        annual = price.get("annual") or price.get("annual_price") or 995
         if email:
             pending_handoffs[email] = {
                 "company": company,
-                "price": monthly,
+                "price": annual,
                 "source": "web_chat",
                 "stage": state.get("stage"),
             }
@@ -676,7 +648,7 @@ async def api_prospect_chat(request: Request):
                 deal_id = crm.add_deal(
                     company=company,
                     contact_email=email,
-                    pricing_result={"monthly_price": monthly, **price},
+                    pricing_result={"annual_price": annual, **price},
                     source="web_chat",
                 )
                 crm.update_stage(deal_id, "won", note="Closed via web chat")
@@ -684,7 +656,7 @@ async def api_prospect_chat(request: Request):
                 print(f"[Finch] CRM write failed: {e}")
         try:
             memory.remember(
-                f"Closed deal via web chat: {json.dumps(state.get('discovered'))} email={email} price={monthly}",
+                f"Closed deal via web chat: {json.dumps(state.get('discovered'))} email={email} annual_price={annual}",
                 metadata={"type": "closed_deal", "prospect_id": prospect_id},
             )
         except Exception:

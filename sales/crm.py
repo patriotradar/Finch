@@ -1,4 +1,4 @@
-"""Lightweight CRM — Finch tracks every deal."""
+"""Legacy file-backed CRM compatibility layer for Aegis deal handoffs."""
 
 import json, os
 from datetime import datetime
@@ -59,12 +59,18 @@ class CRM:
         for deal in self.deals.values():
             stage = deal["stage"]
             stages[stage] = stages.get(stage, 0) + 1
-        mrr = sum(
-            c.get("price", {}).get("monthly_price", 0)
+        annual_revenue = sum(
+            c.get("price", {}).get("annual_price", c.get("price", {}).get("annual", 0))
             for c in self.clients.values()
             if c.get("status") == "active"
         )
-        return {"stages": stages, "total_deals": len(self.deals), "active_clients": len(self.clients), "mrr": mrr}
+        return {
+            "stages": stages,
+            "total_deals": len(self.deals),
+            "active_clients": len(self.clients),
+            "annual_revenue": annual_revenue,
+            "mrr": 0,
+        }
 
     def get_active_clients(self):
         return [c for c in self.clients.values() if c.get("status") == "active"]
