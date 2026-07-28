@@ -19,6 +19,9 @@ def test_public_customer_and_legal_pages(monkeypatch, tmp_path):
         assert "frame-ancestors 'none'" in landing.headers["content-security-policy"]
         assert client.get("/chat").status_code == 200
         assert client.get("/account").status_code == 200
+        anonymous_account = client.get("/api/account/assets")
+        assert anonymous_account.status_code == 401
+        assert anonymous_account.json() == {"error": "authentication_required"}
         assert client.get("/legal/privacy").status_code == 200
         assert client.get("/legal/terms").status_code == 200
         assert client.get("/legal/acceptable-use").status_code == 200

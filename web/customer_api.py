@@ -107,6 +107,8 @@ def build_customer_router(session_factory, account_mailer=None) -> APIRouter:
         return JSONResponse({"error": code}, status_code=status)
 
     def customer_context(raw_token: str | None, csrf: str | None = None, require_csrf: bool = False):
+        if not raw_token:
+            raise PermissionError("authentication_required")
         session = session_factory()
         try:
             service = AccountService(session)
