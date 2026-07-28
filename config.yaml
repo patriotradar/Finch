@@ -30,10 +30,10 @@ llm:
   model: "finch-brain"
   host: "http://127.0.0.1:8080"
   temperature: 0.65
-  max_tokens: 160
+  max_tokens: 320
   context_window: 1024
   # Cloud deploy (Koyeb): just set GROQ_API_KEY env var, no config changes needed
-  # Model auto-switches to llama-3.1-8b-instant when Groq is detected
+  # Model auto-switches to llama-3.3-70b-versatile when Groq is detected
 
 memory:
   provider: "chromadb"

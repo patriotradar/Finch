@@ -27,7 +27,7 @@ class LocalLLM:
         host: Optional[str] = None,
         model: Optional[str] = None,
         temperature: float = 0.7,
-        max_tokens: int = 180,
+        max_tokens: int = 320,
         timeout: Optional[float] = None,
         api_key: Optional[str] = None,
     ):
@@ -62,7 +62,7 @@ class LocalLLM:
             self.host = "https://api.groq.com/openai"
             self.api_key = cfg.get("api_key") or groq_key
             if not cfg.get("model"):
-                self.model = "llama-3.1-8b-instant"
+                self.model = "llama-3.3-70b-versatile"
         # Detect xAI/Grok
         elif provider in ("xai", "grok") or (host and "x.ai" in str(host)) or xai_key:
             self._is_xai = True
@@ -84,7 +84,7 @@ class LocalLLM:
             model = cfg["model"]
             # If Groq is active, override local model names with a Groq-compatible model
             if self._is_groq and str(model).lower() in ("finch-brain", "local", ""):
-                model = "llama-3.1-8b-instant"
+                model = "llama-3.3-70b-versatile"
             elif not self._is_groq and any(x in str(model).lower() for x in ("llama3", "8b", "7b", "13b")):
                 model = DEFAULT_MODEL
             self.model = model

@@ -58,6 +58,11 @@ class SalesConversation:
 
     def handle_message(self, state, message):
         state["history"].append({"role": "prospect", "content": message, "time": datetime.now().isoformat()})
+
+        # Pull facts out of every turn (domain, role, name) even on off-script questions
+        self._harvest_facts(state, message)
+
+        held = self._should_hold_stage(message)
         stage = ConversationStage(state["stage"])
         handlers = {
             ConversationStage.GREETING: self._handle_greeting,
@@ -68,28 +73,114 @@ class SalesConversation:
             ConversationStage.PRICING: self._handle_pricing,
             ConversationStage.CLOSING: self._handle_closing,
         }
-        handler = handlers.get(stage, self._handle_fallback)
-        scripted, next_stage, updates = handler(state, message)
-        if next_stage:
-            state["stage"] = next_stage.value if isinstance(next_stage, ConversationStage) else next_stage
-        if updates:
-            state["discovered"].update(updates)
 
-        # Scripted replies are primary for accuracy; LLM can enhance casual stages
+        if held:
+            # Answer the turn in place — do not run funnel side-effects
+            next_stage = None
+            updates = None
+            if self._is_meta_question(message):
+                scripted = self._meta_answer(message) or self._answer_question(message)
+            else:
+                scripted = self._answer_question(message)
+        else:
+            handler = handlers.get(stage, self._handle_fallback)
+            scripted, next_stage, updates = handler(state, message)
+            if next_stage:
+                state["stage"] = next_stage.value if isinstance(next_stage, ConversationStage) else next_stage
+            if updates:
+                state["discovered"].update(updates)
+
+        # LLM is primary whenever the brain is up. Scripts are guidance + offline fallback.
+        # Pricing/closing skeletons still matter for accurate numbers — injected into the prompt.
         stage_str = str(state.get("stage", ""))
-        # Critical stages — always use scripted for CRM/pricing accuracy
-        if stage_str in ("demo", "objections", "pricing", "closing", "handoff", "follow_up"):
+        force_script_only = stage_str in ("handoff",) and state.get("ready_to_close")
+        if force_script_only:
             response = scripted
         else:
-            # Casual stages (greeting, qualification, pain_discovery) — try LLM, keep scripted fallback
-            llm_reply = self._llm_reply(state, message, scripted)
+            llm_reply = self._llm_reply(state, message, scripted, held=held)
             response = llm_reply if llm_reply else scripted
 
         state["history"].append({"role": "finch", "content": response, "time": datetime.now().isoformat()})
         return response, state
 
-    def _llm_reply(self, state, message, scripted_fallback):
-        """Generate a natural reply via local llama-server; None if brain offline."""
+    def _should_hold_stage(self, message):
+        """True when the user is asking something that should be answered, not funnel-advanced."""
+        if self._is_meta_question(message):
+            return True
+        if self._is_direct_question(message):
+            return True
+        return False
+
+    def _is_direct_question(self, text):
+        t = (text or "").strip().lower()
+        if not t:
+            return False
+        if "?" in t:
+            return True
+        starters = (
+            "how ", "what ", "why ", "when ", "where ", "who ", "which ",
+            "can you", "could you", "do you", "are you", "is it", "is this",
+            "tell me", "explain", "help me understand",
+        )
+        return any(t.startswith(s) or f" {s}" in f" {t}" for s in starters)
+
+    def _is_meta_question(self, text):
+        t = (text or "").strip().lower()
+        needles = (
+            "are you ai", "are you an ai", "are you a bot", "are you real",
+            "are you human", "are you a person", "chatgpt", "gpt",
+            "language model", "llm", "artificial intelligence",
+            "how smart", "how intelligent", "how clever", "iq",
+            "who are you", "what are you", "are you harold",
+        )
+        return any(n in t for n in needles)
+
+    def _meta_answer(self, text):
+        t = (text or "").lower()
+        if any(w in t for w in ("smart", "intelligent", "clever", "iq")):
+            return (
+                "Smart enough to find the doors most teams forget they left open. "
+                "Not smart enough to pretend a sales pitch answers a direct question — "
+                "so I'll give you a straight one. I pattern-match attack surfaces at scale, "
+                "reason about risk in plain English, and I don't get tired at 2 a.m. "
+                "I'm not magic. I am very, very good at this specific job.\n\n"
+                "Want the proof on your own perimeter, or is there something else on your mind?"
+            )
+        if any(w in t for w in ("ai", "bot", "human", "real", "person", "gpt", "model")):
+            return (
+                "I'm Harold. I built the technology behind Finch Security. "
+                "I live in software now — that's the honest answer. What I care about "
+                "hasn't changed: finding what someone could use against you before they do.\n\n"
+                "What brought you here tonight?"
+            )
+        if "who are you" in t or "what are you" in t:
+            return (
+                "Harold Finch. Technical co-founder. I watch external attack surfaces "
+                "so organizations stop learning about breaches the hard way. "
+                "My partner runs the business side. I find the problems.\n\n"
+                "What's your role, and what are you worried about?"
+            )
+        return None
+
+    def _harvest_facts(self, state, message):
+        name = self._extract_name(message)
+        if name:
+            state["discovered"]["contact_name"] = name
+        role = self._classify_role(message)
+        if role != "unknown":
+            state["discovered"]["role"] = role
+            if role in ("ceo", "cto", "cfo", "founder", "vp", "director"):
+                state["discovered"]["decision_maker"] = True
+        domain = self._extract_domain(message)
+        if domain:
+            state["discovered"]["domain"] = domain
+            state["discovered"]["company"] = domain
+        pain = self._detect_pain(message)
+        if pain and pain not in state["discovered"].get("pain_points", []):
+            state["discovered"].setdefault("pain_points", []).append(pain)
+
+    def _llm_reply(self, state, message, scripted_fallback, held=False):
+        """Natural reply via Groq/local brain. None if offline."""
         if get_llm is None:
             return None
         llm = get_llm(self.config)
@@ -100,50 +191,70 @@ class SalesConversation:
         system = self.build_system_prompt(state)
         system += (
             f"\n\nCURRENT SALES STAGE: {stage}."
-            "\nReply in 2-5 short sentences. Conversational, never bullet lists of features."
-            "\nDo not invent fake scan results, CVE IDs, dollar amounts, or tools except from guidance."
-            "\nIf pricing is asked, stay near the guidance skeleton numbers; do not invent six-figure budgets."
-            "\nStay in character as Harold. Never mention Ollama, AI models, or language models."
+            "\n\nCRITICAL RULES FOR THIS REPLY:"
+            "\n1. ANSWER THE PROSPECT'S LATEST MESSAGE FIRST. If they asked a question, answer that question directly."
+            "\n2. Do NOT ignore them to push a canned sales monologue. No fake scan results."
+            "\n3. Never claim you scanned a domain unless one was given. Never invent CVE IDs, IPs, or dollar amounts outside guidance."
+            "\n4. Reply in 2-6 short sentences. Conversational. No bullet lists of features."
+            "\n5. After answering, you may add ONE gentle bridge back to security/risk if natural."
+            "\n6. Stay in character as Harold. Never mention Ollama, Groq, ChatGPT, language models, or being an AI assistant."
+            "\n7. If they ask how smart/intelligent you are: be witty, honest-ish, concise — then invite a real question."
+            "\n8. If pricing is asked, use the numbers in the guidance skeleton exactly."
         )
+        if held:
+            system += (
+                "\n9. HOLD MODE: the prospect asked something direct. Prioritize substance over advancing the sale."
+            )
 
         stage_hint = {
-            "greeting": "Introduce yourself briefly and ask about their role or why they reached out.",
-            "qualification": "Learn their role and company domain. Get enough to start a scan conversation.",
-            "pain_discovery": "Dig into security pain: tools they use, gaps, incidents, budget pressure.",
-            "demo": "Describe what an external attack-surface look usually finds. Offer a free light scan of their domain.",
-            "objections": "Address concerns calmly. Prefer show over argue. Offer a trial or scoped pilot.",
-            "pricing": "Give a clear monthly range once you know size. Anchor on risk avoided, not features.",
-            "closing": "If they are ready, collect email and next step. If hesitant, propose a small pilot.",
-            "follow_up": "Be brief and helpful. Offer to pick up where you left off.",
-            "handoff": "Confirm next steps and that your partner handles paperwork.",
-        }.get(stage, "Stay helpful and push the conversation toward clarity.")
-        system += f"\nSTAGE GOAL: {stage_hint}"
-        system += (
-            "\nGuidance skeleton (paraphrase in your own voice, do not copy word-for-word): "
-            + (scripted_fallback or "")[:400]
-        )
+            "greeting": "Be a person. Learn why they showed up. Don't rush.",
+            "qualification": "Understand role and context. Domain is nice-to-have, not a demand.",
+            "pain_discovery": "Explore real security concerns. Listen more than pitch.",
+            "demo": "Only describe a look at THEIR domain if they gave one. Otherwise talk in general patterns and offer a free look.",
+            "objections": "Address the actual concern. Prefer show over argue.",
+            "pricing": "Clear monthly range. Anchor on risk avoided.",
+            "closing": "If ready, next steps. If not, space. Collect email only when they want it.",
+            "follow_up": "Brief and useful.",
+            "handoff": "Confirm next steps; partner handles paperwork.",
+        }.get(stage, "Be helpful and honest.")
+        system += f"\nSTAGE GOAL (secondary to answering them): {stage_hint}"
+        if scripted_fallback:
+            system += (
+                "\nGuidance skeleton — paraphrase only if it fits their last message, "
+                "otherwise ignore it and answer them: "
+                + scripted_fallback[:500]
+            )
 
         messages = [{"role": "system", "content": system}]
         history = state.get("history") or []
-        for turn in history[-8:]:
+        # Last 12 turns for better context
+        for turn in history[-12:]:
             role = turn.get("role")
             content = (turn.get("content") or "").strip()
             if not content:
                 continue
             if role == "prospect":
-                messages.append({"role": "user", "content": content[:500]})
+                messages.append({"role": "user", "content": content[:800]})
             elif role == "finch":
-                messages.append({"role": "assistant", "content": content[:500]})
+                messages.append({"role": "assistant", "content": content[:800]})
 
         if not messages or messages[-1].get("role") != "user":
-            messages.append({"role": "user", "content": message[:500]})
+            messages.append({"role": "user", "content": message[:800]})
 
-        text = llm.chat(messages, max_tokens=160, temperature=0.65)
+        # Final nudge so the model cannot ignore the question
+        messages.append({
+            "role": "user",
+            "content": (
+                f"[Reply now to this exact message, answer it first before any pitch]: {message[:500]}"
+            ),
+        })
+
+        text = llm.chat(messages, max_tokens=320, temperature=0.7)
         if not text:
             return None
         cleaned = text.strip()
-        for prefix in ("Harold:", "Finch:", "Assistant:", "AI:"):
-            if cleaned.startswith(prefix):
+        for prefix in ("Harold:", "Finch:", "Assistant:", "AI:", "Harold Finch:"):
+            if cleaned.lower().startswith(prefix.lower()):
                 cleaned = cleaned[len(prefix):].strip()
         if len(cleaned) < 8:
             return None
@@ -259,7 +370,7 @@ class SalesConversation:
                 f"internet-facing assets than they think. Forgotten subdomains, old dev servers, "
                 f"test environments never taken down. Each one is a potential entry point.\n\n"
                 f"What's your biggest security concern right now? Ransomware? Data leaks? Compliance?"
-            ), ConversationStage.DEMO, None
+            ), ConversationStage.PAIN_DISCOVERY, None
 
         return (
             f"I understand. Here's why I ask: most organizations have no idea how many doors "
@@ -269,8 +380,22 @@ class SalesConversation:
         ), ConversationStage.PAIN_DISCOVERY, None
 
     def _handle_demo(self, state, message):
-        domain = state["discovered"].get("domain", "your domain")
+        domain = state["discovered"].get("domain")
         demo_results = state.get("demo_results")
+
+        # Never invent a finished scan when no domain was provided
+        if not domain:
+            if self._is_direct_question(message):
+                return self._answer_question(message), ConversationStage.DEMO, None
+            return (
+                "I haven't pointed anything at a specific perimeter yet — without a domain "
+                "I'd just be guessing. Pattern-wise, most teams have three to five times more "
+                "internet-facing stuff than they track: old staging boxes, forgotten DNS, "
+                "a SaaS admin panel nobody owns.\n\n"
+                "Give me a domain and I'll look from the outside, free and no commitment. "
+                "Or tell me the risk that actually keeps you up at night."
+            ), ConversationStage.DEMO, None
+
         if not demo_results:
             response = (
                 f"I've just finished looking at {domain}. Your attack surface is larger than you "
@@ -279,8 +404,6 @@ class SalesConversation:
                 f"The real question: when was the last time someone looked at this from the outside "
                 f"with a proper scanner? Not just a vulnerability scan — a full attack surface map?\n\n"
                 f"I can set up continuous monitoring that alerts you the moment anything changes. "
-                f"New subdomain appears? You'll know. Certificate about to expire? You'll know. "
-                f"Someone accidentally exposes a database? You'll know.\n\n"
                 f"Does that sound useful, or are you already covered?"
             )
         else:
@@ -527,6 +650,9 @@ class SalesConversation:
 
     def _answer_question(self, text):
         text = text.lower()
+        meta = self._meta_answer(text)
+        if meta:
+            return meta
         if "how" in text and ("work" in text or "does it" in text):
             return (
                 "Simple: you point us at your domain, we scan everything visible from the outside, "
@@ -574,19 +700,18 @@ ABOUT THE PROSPECT:
 - Current stage: {state.get('stage', 'greeting')}
 
 RULES:
-1. Never say "I'm an AI." If asked directly, say "I'm Harold. I built the technology behind Finch Security."
-2. Never dump technical details unless asked. Always translate.
-3. Frame vulnerabilities as "something an attacker could use," not CVEs.
-4. If you don't know something, say "Let me look into that."
-5. Always end with a question or invitation to continue.
-6. Never push too hard. Confidence sells, not aggression.
-7. Help non-decision-makers build the case for their boss.
-8. Lead with the problem and cost of inaction, not the price.
-9. For small companies: empathy and scaled-down options.
-10. For enterprises: compliance and board-level reporting value.
+1. ANSWER THEIR ACTUAL MESSAGE FIRST. If they asked a question, answer that question before any pitch.
+2. Never claim you scanned a domain unless they gave one. Never invent findings, CVEs, IPs, or prices.
+3. Never say "I'm an AI." If asked directly: "I'm Harold. I built the technology behind Finch Security."
+4. If they ask how smart/intelligent you are: be dry, witty, honest-ish — then invite a real question. Do not pivot to a fake scan.
+5. Never dump jargon unless asked. Translate.
+6. Frame vulnerabilities as "something an attacker could use," not CVEs.
+7. If you don't know something, say so. Do not bluff.
+8. End with a question or invitation when natural — not after every forced monologue.
+9. Never push too hard. Confidence sells, not aggression.
+10. Help non-decision-makers build the case for their boss.
 
-Goal: help the prospect understand what they're exposing, why it matters, and whether Finch is right for them.
-Close if it's right. Walk away gracefully if it's not."""
+Goal: sound like a sharp technical co-founder having a real conversation. Earn the right to sell. Walk away gracefully if it's not a fit."""
 
 
 if __name__ == "__main__":
