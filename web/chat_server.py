@@ -34,6 +34,7 @@ from pricing.engine import PricingEngine
 from memory.vector_store import MemoryStore
 from messaging.telegram_docs import FinchDocs
 from messaging.mail_store import MailStore
+from sales.pipeline import LeadPipeline
 from web import admin_brain
 import yaml
 
@@ -83,6 +84,7 @@ conversation_engine = SalesConversation(None, pricing, memory, config)
 crm = CRM(data_dir=str(_DATA_ROOT / "clients"))
 docs_engine = FinchDocs(docs_dir=str(_DATA_ROOT / "documents"))
 mail_store = MailStore(str(_DATA_ROOT))
+lead_pipeline = LeadPipeline(str(_DATA_ROOT))
 
 # Do NOT seed fake BigBank clients on cloud — empty pipeline is more honest
 # than a prototype $1,970 MRR. Real clients arrive via won deal/handoff.
@@ -328,6 +330,8 @@ async def admin_dashboard():
         "real_mrr": real_mrr,
         "total_deals": pipeline.get("total_deals", 0),
         "brain_online": brain_ok,
+        "leads": lead_pipeline.summary(),
+        "recent_leads": lead_pipeline.list_leads(limit=5),
         "clients": [
             {
                 "company": c.get("company"),
@@ -561,6 +565,123 @@ async def admin_send_email(msg_id: str):
 @app.delete("/api/admin/emails/{msg_id}")
 async def admin_delete_email(msg_id: str):
     ok = mail_store.delete(msg_id)
+    return JSONResponse({"ok": ok})
+
+
+
+
+@app.get("/api/admin/leads")
+async def admin_list_leads():
+    return JSONResponse({
+        "summary": lead_pipeline.summary(),
+        "leads": lead_pipeline.list_leads(limit=50),
+        "hunter": bool(__import__("os").environ.get("HUNTER_API_KEY") or __import__("os").environ.get("HUNTER_KEY")),
+        "smtp": mail_store.config_status(),
+    })
+
+
+@app.post("/api/admin/leads/research")
+async def admin_research_lead(request: Request):
+    body = await request.json()
+    domain = (body.get("domain") or body.get("company") or "").strip()
+    company = (body.get("company_name") or body.get("name") or "").strip()
+    result = lead_pipeline.research(domain, company=company)
+    status = 200 if result.get("ok") else 400
+    return JSONResponse(result, status_code=status)
+
+
+@app.get("/api/admin/leads/{lead_id}")
+async def admin_get_lead(lead_id: str):
+    lead = lead_pipeline.get(lead_id)
+    if not lead:
+        return JSONResponse({"error": "not_found"}, status_code=404)
+    return JSONResponse({"lead": lead})
+
+
+@app.post("/api/admin/leads/{lead_id}/select")
+async def admin_select_lead_email(lead_id: str, request: Request):
+    body = await request.json()
+    email = (body.get("email") or "").strip()
+    lead = lead_pipeline.select_email(lead_id, email)
+    if not lead:
+        return JSONResponse({"error": "not_found"}, status_code=404)
+    return JSONResponse({"ok": True, "lead": lead})
+
+
+@app.post("/api/admin/leads/{lead_id}/draft")
+async def admin_draft_lead(lead_id: str, request: Request):
+    lead = lead_pipeline.get(lead_id)
+    if not lead:
+        return JSONResponse({"error": "not_found"}, status_code=404)
+    body = {}
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    to = (body.get("email") or lead.get("selected_email") or "").strip()
+    if not to and lead.get("emails"):
+        to = lead["emails"][0]["email"]
+    if not to:
+        return JSONResponse({"ok": False, "error": "No email selected"}, status_code=400)
+    if body.get("email"):
+        lead_pipeline.select_email(lead_id, to)
+        lead = lead_pipeline.get(lead_id) or lead
+    hook = body.get("finding") or lead_pipeline.best_hook(lead)
+    crafted = mail_store.craft_outreach(lead.get("company") or "", to, hook)
+    msg = mail_store.compose(
+        to=to,
+        subject=crafted.get("subject") or f"Security note for {lead.get('company')}",
+        body=crafted.get("body") or "",
+        company=lead.get("company") or "",
+        as_draft=True,
+    )
+    lead_pipeline.mark_drafted(lead_id, msg.get("id") or "")
+    return JSONResponse({"ok": True, "message": msg, "lead": lead_pipeline.get(lead_id)})
+
+
+@app.post("/api/admin/leads/{lead_id}/send")
+async def admin_send_lead(lead_id: str, request: Request):
+    lead = lead_pipeline.get(lead_id)
+    if not lead:
+        return JSONResponse({"error": "not_found"}, status_code=404)
+    body = {}
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    # Prefer existing draft
+    mid = body.get("message_id") or lead.get("draft_message_id")
+    if not mid:
+        # draft first
+        to = (body.get("email") or lead.get("selected_email") or "").strip()
+        if not to and lead.get("emails"):
+            to = lead["emails"][0]["email"]
+        if not to:
+            return JSONResponse({"ok": False, "error": "No email"}, status_code=400)
+        hook = lead_pipeline.best_hook(lead)
+        crafted = mail_store.craft_outreach(lead.get("company") or "", to, hook)
+        msg = mail_store.compose(
+            to=to,
+            subject=crafted.get("subject") or "",
+            body=crafted.get("body") or "",
+            company=lead.get("company") or "",
+            as_draft=True,
+        )
+        mid = msg["id"]
+        lead_pipeline.mark_drafted(lead_id, mid)
+    result = mail_store.queue_send(mid)
+    if result.get("sent"):
+        lead_pipeline.mark_sent(lead_id, mid)
+    else:
+        lead_pipeline.mark_drafted(lead_id, mid)
+    if result.get("ok"):
+        result["lead"] = lead_pipeline.get(lead_id)
+    return JSONResponse(result)
+
+
+@app.delete("/api/admin/leads/{lead_id}")
+async def admin_delete_lead(lead_id: str):
+    ok = lead_pipeline.delete(lead_id)
     return JSONResponse({"ok": ok})
 
 

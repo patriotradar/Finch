@@ -79,7 +79,7 @@ class MailStore:
                     "We monitor external infrastructure — Northline came up in our scans.\n\n"
                     "I found an exposed staging host on a stale DNS record. It's the kind of "
                     "door attackers scan for first.\n\nHappy to walk you through it in plain "
-                    "English. No pitch — just the picture.\n\nBest,\nHarold Finch"
+                    "English. No pitch — just the picture.\n\nBest,\nKane"
                 ),
                 "created_at": _now(),
                 "thread": "northline",
@@ -97,7 +97,7 @@ class MailStore:
                     "Hi,\n\nI'm Kane at Aegis. A quick external look at "
                     "acmecorp.com surfaced a few items I'd want to know about if it were mine.\n\n"
                     "Five-minute walkthrough, free, no commitment. Reply or chat here:\n"
-                    "{chat}\n\nHarold"
+                    "{chat}\n\nKane"
                 ),
                 "created_at": _now(),
                 "thread": "acme",
@@ -323,7 +323,7 @@ class MailStore:
                 f"Happy to walk you through the full picture in plain English. "
                 f"No pitch, five minutes.\n\n"
                 f"Or chat live: {chat}\n\n"
-                f"Best,\nHarold Finch\nTechnical Co-Founder, Aegis"
+                f"Best,\nKane\nTechnical Co-Founder, Aegis"
             )
             subject = f"Security finding for {company}"
         else:

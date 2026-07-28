@@ -348,6 +348,7 @@
     </div>
     <button class="nav-btn active" data-tab="home" type="button"><span class="ic">⌂</span> Home</button>
     <button class="nav-btn" data-tab="mail" type="button"><span class="ic">✉</span> Mail</button>
+    <button class="nav-btn" data-tab="leads" type="button"><span class="ic">◎</span> Leads</button>
     <button class="nav-btn" data-tab="chat" type="button"><span class="ic">✦</span> Kane</button>
     <button class="nav-btn" data-tab="more" type="button"><span class="ic">☰</span> Business</button>
     <div style="flex:1"></div>
@@ -383,6 +384,7 @@
       <span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 7 9-7"/></svg></span>Mail
       <span class="nb" id="mailBadge">0</span>
     </button>
+    <button type="button" data-tab="leads"><span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg></span>Leads</button>
     <button type="button" data-tab="chat"><span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/></svg></span>Kane</button>
     <button type="button" data-tab="more"><span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></span>More</button>
   </nav>
@@ -458,6 +460,7 @@
     const titles = {
       home: ['Home', 'What needs you'],
       mail: ['Mail', 'Inbox · drafts · outbox'],
+      leads: ['Leads', 'Find companies · emails · outreach'],
       chat: ['Kane', 'Technical co-founder'],
       more: ['Business', 'Handoffs · clients · docs'],
     };
@@ -493,6 +496,7 @@
     try {
       if (state.tab === 'home') await renderHome();
       else if (state.tab === 'mail') await renderMail(null);
+      else if (state.tab === 'leads') await renderLeads(null);
       else if (state.tab === 'chat') await renderChat();
       else await renderMore();
     } catch (e) {
@@ -742,6 +746,155 @@
     toast('Deleted');
     renderMail(null);
   }
+
+
+  // ---------- Leads pipeline ----------
+  function sevColor(sev) {
+    return sev === 'high' ? 'var(--red)' : sev === 'medium' ? 'var(--amber, #f5a623)' : sev === 'low' ? 'var(--b, #6ea8fe)' : 'var(--dim)';
+  }
+
+  async function renderLeads(openId) {
+    content.innerHTML = '<div class="skeleton"></div>';
+    const d = await api('/api/admin/leads');
+    const sum = d.summary || {};
+    const leads = d.leads || [];
+
+    if (openId) {
+      const full = await api('/api/admin/leads/' + encodeURIComponent(openId));
+      const l = full.lead;
+      if (!l) return renderLeads(null);
+      let html = '<div class="row" style="margin-bottom:12px">' +
+        '<button type="button" class="btn ghost sm" id="leadBack">\u2190 Back</button>' +
+        '<button type="button" class="btn sm" id="leadReResearch">Re-scan</button>' +
+        '<button type="button" class="btn danger sm" id="leadDel">Delete</button></div>';
+
+      html += '<div class="card">' +
+        '<div style="font-size:18px;font-weight:700;letter-spacing:-.02em">' + esc(l.company || l.domain) + '</div>' +
+        '<div style="font-size:12px;color:var(--muted);margin-top:2px">' + esc(l.domain) + '</div>' +
+        '<div style="margin-top:8px"><span class="tag ' + esc(l.stage) + '">' + esc(l.stage) + '</span></div></div>';
+
+      html += '<div class="card"><div class="sec-head"><h3>Contact emails</h3></div>';
+      const emails = l.emails || [];
+      if (!emails.length) {
+        html += '<div class="note">No public emails found on the site' + (d.hunter ? '' : ' \u2014 add <b style="color:var(--text)">HUNTER_API_KEY</b> on Vercel for people-level contacts') + '. Role guesses are included when mail resolves.</div>';
+      }
+      emails.forEach(e => {
+        const sel = (l.selected_email === e.email);
+        html += '<div class="person" style="padding:10px 0;border-top:1px solid var(--line);align-items:center">' +
+          '<div style="min-width:0;flex:1"><div class="name" style="word-break:break-all">' + esc(e.email) +
+          (sel ? ' <span class="tag ready">selected</span>' : '') + '</div>' +
+          '<div class="sub">' + esc(e.source || '') + (e.position ? ' \u00b7 ' + esc(e.position) : '') + (e.name ? ' \u00b7 ' + esc(e.name) : '') + '</div></div>' +
+          '<button type="button" class="btn ' + (sel ? 'ghost' : '') + ' sm" data-sel="' + esc(e.email) + '">' + (sel ? 'Picked' : 'Pick') + '</button></div>';
+      });
+      html += '</div>';
+
+      const findings = l.findings || [];
+      if (findings.length) {
+        html += '<div class="card"><div class="sec-head"><h3>Surface findings</h3></div>';
+        findings.forEach(f => {
+          html += '<div style="padding:9px 0;border-top:1px solid var(--line)">' +
+            '<div style="font-size:14px;font-weight:600;color:' + sevColor(f.severity) + '">' + esc(f.title) + '</div>' +
+            '<div style="font-size:12.5px;color:var(--muted);line-height:1.5;margin-top:2px">' + esc(f.detail) + '</div></div>';
+        });
+        html += '</div>';
+      }
+
+      html += '<div class="card"><div class="sec-head"><h3>Outreach</h3></div>' +
+        '<div style="font-size:13px;color:var(--muted);line-height:1.55;margin-bottom:12px">Kane will open with the strongest finding for ' + esc(l.company || l.domain) + ' and write to <b style="color:var(--text)">' + esc(l.selected_email || 'no email picked yet') + '</b>.</div>' +
+        '<div class="row">' +
+        '<button type="button" class="btn sm" id="leadDraft"' + (l.selected_email ? '' : ' disabled') + '>Draft with Kane</button>' +
+        '<button type="button" class="btn green sm" id="leadSend"' + (l.selected_email ? '' : ' disabled') + '>Draft + Send</button></div></div>';
+
+      content.innerHTML = html;
+      $('leadBack').onclick = () => renderLeads(null);
+      $('leadDel').onclick = async () => {
+        if (!confirm('Delete this lead?')) return;
+        await fetch('/api/admin/leads/' + encodeURIComponent(openId), { method: 'DELETE' });
+        toast('Lead deleted'); renderLeads(null);
+      };
+      $('leadReResearch').onclick = async () => {
+        toast('Re-scanning\u2026');
+        await api('/api/admin/leads/research', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ domain: l.domain, name: l.company }) });
+        renderLeads(openId);
+      };
+      content.querySelectorAll('[data-sel]').forEach(btn => {
+        btn.onclick = async () => {
+          await api('/api/admin/leads/' + encodeURIComponent(openId) + '/select', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: btn.getAttribute('data-sel') }) });
+          toast('Recipient picked'); renderLeads(openId);
+        };
+      });
+      const ld = $('leadDraft');
+      if (ld) ld.onclick = async () => {
+        ld.disabled = true; ld.textContent = 'Drafting\u2026';
+        try {
+          const r = await api('/api/admin/leads/' + encodeURIComponent(openId) + '/draft', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+          if (r.ok) { toast('Draft ready in Mail \u00b7 Drafts'); state.mailFolder = 'drafts'; switchTab('mail'); }
+          else { toast(r.error || 'Draft failed'); ld.disabled = false; ld.textContent = 'Draft with Kane'; }
+        } catch (e) { toast('Draft failed'); ld.disabled = false; ld.textContent = 'Draft with Kane'; }
+      };
+      const ls = $('leadSend');
+      if (ls) ls.onclick = async () => {
+        ls.disabled = true; ls.textContent = 'Sending\u2026';
+        try {
+          const r = await api('/api/admin/leads/' + encodeURIComponent(openId) + '/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+          if (r.sent) { toast('Sent'); renderLeads(openId); }
+          else if (r.status === 'queued') { toast('Queued \u2014 connect SMTP to deliver'); renderLeads(openId); }
+          else { toast(r.error || 'Send failed'); ls.disabled = false; ls.textContent = 'Draft + Send'; }
+        } catch (e) { toast('Send failed'); ls.disabled = false; ls.textContent = 'Draft + Send'; }
+      };
+      return;
+    }
+
+    // List view
+    let html = '<div class="card"><div class="sec-head"><h3>Find a lead</h3></div>' +
+      '<div class="field"><label>Company domain</label><input id="lDomain" placeholder="acme.com" inputmode="url" autocapitalize="off" autocomplete="off"></div>' +
+      '<div class="field"><label>Company name (optional)</label><input id="lCompany" placeholder="Acme Corp" autocomplete="organization"></div>' +
+      '<button type="button" class="btn sm" id="btnResearch" style="margin-top:4px">Research: surface + emails</button></div>';
+
+    html += '<div class="stats" style="margin:0 0 14px">' +
+      '<div class="stat"><div class="k">Leads</div><div class="v b">' + (sum.total||0) + '</div><div class="h">researched</div></div>' +
+      '<div class="stat"><div class="k">With emails</div><div class="v g">' + (sum.with_emails||0) + '</div><div class="h">ready to contact</div></div></div>';
+
+    if (!d.hunter) {
+      html += '<div class="note">Tip: set <b style="color:var(--text)">HUNTER_API_KEY</b> (hunter.io, free tier) on Vercel to pull named people at each company \u2014 otherwise Kane finds public + role emails from the website itself.</div>';
+    }
+
+    if (!leads.length) {
+      html += '<div class="empty"><div class="big">\u25ce</div><h4>No leads yet</h4>Drop in a domain above. Kane maps its public surface and finds the emails to write to.</div>';
+    } else {
+      leads.forEach(l => {
+        const n = (l.emails || []).length;
+        html += '<div class="card tap" data-lead="' + esc(l.id) + '"><div class="person" style="align-items:center">' +
+          '<div class="av">' + esc(String(l.company || l.domain || '?')[0] || '?') + '</div>' +
+          '<div style="min-width:0;flex:1"><div class="name">' + esc(l.company || l.domain) + '</div>' +
+          '<div class="sub">' + esc(l.domain) + ' \u00b7 ' + n + ' email' + (n === 1 ? '' : 's') + '</div></div>' +
+          '<span class="tag ' + esc(l.stage) + '">' + esc(l.stage) + '</span></div></div>';
+      });
+    }
+    content.innerHTML = html;
+
+    content.querySelectorAll('[data-lead]').forEach(el => {
+      el.onclick = () => renderLeads(el.getAttribute('data-lead'));
+    });
+    $('btnResearch').onclick = async () => {
+      const domain = ($('lDomain').value || '').trim();
+      const company = ($('lCompany').value || '').trim();
+      if (!domain) { toast('Enter a domain first'); return; }
+      const btn = $('btnResearch');
+      btn.disabled = true; btn.textContent = 'Scanning\u2026 (10-30s)';
+      try {
+        const r = await api('/api/admin/leads/research', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ domain, name: company }) });
+        if (r.ok && r.lead) { toast('Lead ready'); renderLeads(r.lead.id); }
+        else { toast(r.error || 'Research failed'); btn.disabled = false; btn.textContent = 'Research: surface + emails'; }
+      } catch (e) {
+        toast('Research failed'); btn.disabled = false; btn.textContent = 'Research: surface + emails';
+      }
+    };
+  }
+  // ---------- /Leads pipeline ----------
 
   async function renderChat() {
     content.innerHTML =

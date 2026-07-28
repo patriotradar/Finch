@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Finch — Autonomous AI Co-Founder for Attack Surface Management
+Aegis — Autonomous AI Co-Founder for Attack Surface Management
 ==============================================================
-Harold Finch lives here. He monitors, sells, prices, negotiates,
+Kane lives here. He monitors, sells, prices, negotiates,
 and talks to you like a partner — not a tool.
 
 Usage:
