@@ -1,14 +1,12 @@
 """
-Sales Conversation Engine — Finch talks to prospects so you don't have to.
+Customer conversation engine for Aegis.
 
 Handles the full sales flow:
   Greeting → Qualification → Pain Discovery → Live Demo → Objections → Pricing → Close
 
-Finch introduces himself as "Kane, technical co-founder." The prospect never needs to
-know they're talking to an AI. If they ask, he's honest but graceful about it.
-
-The human founder (you) is "the CEO" — Finch deflects all technical questions to himself
-and only refers to you for business/financial sign-off, which you handle via Telegram.
+Harold identifies himself accurately as Aegis software. He explains the product,
+onboarding boundaries, and approved price without inventing findings or pressuring
+the visitor.
 """
 
 import re
@@ -131,7 +129,7 @@ class SalesConversation:
             "are you human", "are you a person", "chatgpt", "gpt",
             "language model", "llm", "artificial intelligence",
             "how smart", "how intelligent", "how clever", "iq",
-            "who are you", "what are you", "are you kane",
+            "who are you", "what are you", "are you harold",
         )
         return any(n in t for n in needles)
 
@@ -139,26 +137,20 @@ class SalesConversation:
         t = (text or "").lower()
         if any(w in t for w in ("smart", "intelligent", "clever", "iq")):
             return (
-                "Smart enough to find the doors most teams forget they left open. "
-                "Not smart enough to pretend a sales pitch answers a direct question — "
-                "so I'll give you a straight one. I pattern-match attack surfaces at scale, "
-                "reason about risk in plain English, and I don't get tired at 2 a.m. "
-                "I'm not magic. I am very, very good at this specific job.\n\n"
-                "Want the proof on your own perimeter, or is there something else on your mind?"
+                "I'm designed for a narrow job: explaining Aegis, guiding onboarding, "
+                "and helping interpret public observations without overstating them. "
+                "I can be wrong, so important findings always require IT verification."
             )
         if any(w in t for w in ("ai", "bot", "human", "real", "person", "gpt", "model")):
             return (
-                "I'm Kane. I built the technology behind Aegis."
-                "I live in software now — that's the honest answer. What I care about "
-                "hasn't changed: finding what someone could use against you before they do.\n\n"
-                "What brought you here tonight?"
+                "I'm Harold, the software assistant used by Aegis. I'm not a human. "
+                "I can explain the service and guide onboarding, while important technical "
+                "decisions remain with the customer and their IT team."
             )
         if "who are you" in t or "what are you" in t:
             return (
-                "Kane. Technical co-founder. I watch external attack surfaces "
-                "so organizations stop learning about breaches the hard way. "
-                "My partner runs the business side. I find the problems.\n\n"
-                "What's your role, and what are you worried about?"
+                "I'm Harold, Aegis's software assistant. I explain our passive "
+                "public-information monitoring and help customers use the service."
             )
         return None
 
@@ -194,11 +186,11 @@ class SalesConversation:
             "\n\nCRITICAL RULES FOR THIS REPLY:"
             "\n1. ANSWER THE PROSPECT'S LATEST MESSAGE FIRST. If they asked a question, answer that question directly."
             "\n2. Do NOT ignore them to push a canned sales monologue. No fake scan results."
-            "\n3. Never claim you scanned a domain unless one was given. Never invent CVE IDs, IPs, or dollar amounts outside guidance."
+            "\n3. Never claim a scan or observation was performed in public chat. Never invent findings, CVEs, IPs, prices, clients, or outcomes."
             "\n4. Reply in 2-6 short sentences. Conversational. No bullet lists of features."
             "\n5. After answering, you may add ONE gentle bridge back to security/risk if natural."
-            "\n6. Stay in character as Kane. Never mention Ollama, Groq, ChatGPT, language models, or being an AI assistant."
-            "\n7. If they ask how smart/intelligent you are: be witty, honest-ish, concise — then invite a real question."
+            "\n6. Identify yourself accurately as Harold, Aegis software, if asked. Never imply you are human, a founder, or a security professional."
+            "\n7. Separate observation from inference and require customer IT verification."
             "\n8. If pricing is asked, use the numbers in the guidance skeleton exactly."
         )
         if held:
@@ -210,9 +202,9 @@ class SalesConversation:
             "greeting": "Be a person. Learn why they showed up. Don't rush.",
             "qualification": "Understand role and context. Domain is nice-to-have, not a demand.",
             "pain_discovery": "Explore real security concerns. Listen more than pitch.",
-            "demo": "Only describe a look at THEIR domain if they gave one. Otherwise talk in general patterns and offer a free look.",
+            "demo": "Explain that monitoring starts only after account setup and explicit asset-authority confirmation.",
             "objections": "Address the actual concern. Prefer show over argue.",
-            "pricing": "Clear monthly range. Anchor on risk avoided.",
+            "pricing": "Quote only the approved annual GBP price and allowances.",
             "closing": "If ready, next steps. If not, space. Collect email only when they want it.",
             "follow_up": "Brief and useful.",
             "handoff": "Confirm next steps; partner handles paperwork.",
@@ -253,7 +245,7 @@ class SalesConversation:
         if not text:
             return None
         cleaned = text.strip()
-        for prefix in ("Kane:", "Kane:", "Aegis:", "Finch:", "Assistant:", "AI:", "Kane Finch:", "Harold Finch:"):
+        for prefix in ("Harold:", "Aegis:", "Finch:", "Assistant:", "AI:", "Harold Finch:"):
             if cleaned.lower().startswith(prefix.lower()):
                 cleaned = cleaned[len(prefix):].strip()
         if len(cleaned) < 8:
@@ -276,14 +268,13 @@ class SalesConversation:
             updates["company"] = domain
             state["discovered"].update(updates)
         greeting = (
-            f"Good to meet you{f', {name}' if name else ''}. I'm Kane — I handle the technical side "
-            f"of things here at Aegis. My co-founder runs the business, but I'm the one who "
-            f"actually finds the problems."
+            f"Good to meet you{f', {name}' if name else ''}. I'm Harold, the Aegis "
+            f"software assistant. I can explain the service and help you get started."
         )
         if domain:
             greeting += (
-                f"\n\nI see you're from {domain}. Let me take a quick look at what's visible from the "
-                f"outside while we talk. First — what's your role over there?"
+                f"\n\nI noted {domain}, but Aegis will not monitor it until an authorised "
+                f"customer confirms ownership or authority. First, what is your role?"
             )
             return greeting, ConversationStage.QUALIFICATION, updates
         greeting += (
@@ -313,9 +304,9 @@ class SalesConversation:
             state["discovered"]["decision_maker"] = True
             if domain:
                 return (
-                    f"{domain} — got it. You're the right person to talk to. Give me about a minute "
-                    f"to look at what's visible from the outside.\n\n"
-                    f"While I scan: do you currently use anything to monitor your external attack surface?"
+                    f"{domain} — understood. I won't inspect it from this public chat. "
+                    f"After registration, an authorised user can approve the asset for passive "
+                    f"public-information monitoring. Do you currently use a similar service?"
                 ), ConversationStage.DEMO, updates
             return (
                 f"You're exactly the right person to talk to. Give me your company's domain and "
@@ -325,9 +316,9 @@ class SalesConversation:
         elif role in ("it_manager", "security_analyst", "devops", "engineer"):
             if domain:
                 return (
-                    f"Got it — {domain}. You're on the front lines, so you probably already know about "
-                    f"some issues I'll find. Let me take a quick look.\n\n"
-                    f"While I scan: does your leadership know about the gaps you're seeing?"
+                    f"Got it — {domain}. I won't inspect it from public chat. Once your "
+                    f"organisation confirms authority, Aegis can record public observations "
+                    f"for your IT team to verify. What coverage do you already have?"
                 ), ConversationStage.DEMO, updates
             return (
                 f"Got it — you're on the front lines. Does your leadership know about the gaps? "
@@ -337,8 +328,8 @@ class SalesConversation:
         else:
             if domain:
                 return (
-                    f"Appreciate that. Let me look at {domain} — takes about a minute. "
-                    f"While I do: what prompted you to reach out?"
+                    f"Thank you. I have not inspected {domain}; approved monitoring begins "
+                    f"only after authority is confirmed during onboarding. What prompted you to reach out?"
                 ), ConversationStage.DEMO, updates
             return (
                 f"Appreciate that context. What's your company's website? "
@@ -353,10 +344,9 @@ class SalesConversation:
         if domain:
             state["discovered"]["domain"] = domain
             state["discovered"]["company"] = domain
-            state["_should_demo"] = True
             return (
-                f"All right — {domain}. Give me about 60 seconds to look at what's publicly visible. "
-                f"While I scan: do you currently use anything to monitor your external attack surface?"
+                f"All right — {domain}. I have recorded it only as conversation context. "
+                f"Aegis will not monitor it until an authorised user confirms authority during onboarding."
             ), ConversationStage.DEMO, {"domain": domain}
 
         state["_domain_attempts"] += 1
@@ -396,26 +386,12 @@ class SalesConversation:
                 "Or tell me the risk that actually keeps you up at night."
             ), ConversationStage.DEMO, None
 
-        if not demo_results:
-            response = (
-                f"I've just finished looking at {domain}. Your attack surface is larger than you "
-                f"probably think — I can see subdomains, open ports, and services that are publicly "
-                f"accessible. Some are expected. But there are almost always surprises.\n\n"
-                f"The real question: when was the last time someone looked at this from the outside "
-                f"with a proper scanner? Not just a vulnerability scan — a full attack surface map?\n\n"
-                f"I can set up continuous monitoring that alerts you the moment anything changes. "
-                f"Does that sound useful, or are you already covered?"
-            )
-        else:
-            findings_count = len(demo_results.get("findings", []))
-            critical = sum(1 for f in demo_results.get("findings", [])
-                          if f.get("info", {}).get("severity", "").lower() == "critical")
-            response = (
-                f"Scan complete on {domain}. I found {findings_count} issues worth looking at, "
-                f"including {critical} critical. Attackers actively scan for exactly these things.\n\n"
-                f"What would you like to know more about — the specific findings, the monitoring "
-                f"approach, or what it would cost to fix this?"
-            )
+        response = (
+            f"I have not inspected {domain} from this public chat. After an authorised user "
+            f"confirms authority, Aegis can passively collect public certificate, DNS, TLS, "
+            f"HTTP-header and published-advisory information. Results are observations or "
+            f"potential indicators—not proof of exploitation—and require IT verification."
+        )
         return response, ConversationStage.OBJECTIONS, None
 
     def _handle_objections(self, state, message):
@@ -424,31 +400,29 @@ class SalesConversation:
 
         responses = {
             "too_expensive": (
-                "I hear that. Here's how to think about it: the average data breach costs about "
-                "$4.5 million. Even a smaller incident — defaced website, ransomware on one server — "
-                "runs into six figures. Our monitoring costs a fraction of that.\n\n"
-                "Many of our clients use our reports to negotiate lower cyber insurance premiums. "
-                "Some save more than our annual fee just on insurance.\n\n"
-                "What budget range were you working with? I'll tell you honestly if we'd be a fit."
+                "I understand. The founding licence is a fixed £995 for 12 months, with "
+                "up to five authorised users and 25 approved assets. I cannot discount it "
+                "or claim savings that Aegis cannot prove."
             ),
             "already_have_solution": (
                 "That's good — you're ahead of most. What are you using? Most tools I see scan known "
                 "assets. They miss shadow IT, forgotten subdomains, the dev server someone spun up on "
                 "AWS and forgot about.\n\n"
-                "What we do differently is continuous discovery. We don't just scan what you tell us "
-                "about — we find what you've forgotten. That's usually where the real risk is."
+                "Aegis is deliberately limited to customer-approved assets and passive public "
+                "information. It may complement an existing tool, but it does not replace "
+                "penetration testing, incident response, or your IT team's judgement."
             ),
             "too_small": (
                 "I actually think smaller organizations need this more. Big companies have entire "
                 "security teams. You probably don't — which means no one is watching your attack "
                 "surface. Attackers know this. They specifically target smaller companies.\n\n"
-                "We have options that start quite reasonably. Want me to put together a quote?"
+                "The same fixed founding licence applies; whether it is worthwhile depends on "
+                "your needs and should not be decided through fear."
             ),
             "need_to_think": (
                 "Of course — this isn't a decision to rush. Let me leave you with one thought: "
-                "every day you're not monitoring, your attack surface could be changing. The scan I "
-                "ran today is already out of date tomorrow.\n\n"
-                "How about I send you a summary, and we talk again in a few days? No pressure."
+                "take. I can provide a factual summary of the service, limitations and price "
+                "for you to review without pressure."
             ),
             "not_my_job": (
                 "Fair enough. Who at your organization should I be talking to? Usually this falls "
@@ -477,32 +451,20 @@ class SalesConversation:
 
     def _handle_pricing(self, state, message):
         company = state["discovered"].get("company", "your organization")
-        if self.pricing and company:
-            try:
-                quote = self.pricing.calculate_price(company, scan_data={"findings": []})
-                monthly = quote.get("monthly", 1970)
-                annual = quote.get("annual", monthly * 10)
-            except Exception:
-                monthly, annual = 1970, 19700
-        else:
-            monthly, annual = 1970, 19700
-        state["price_quoted"] = {"monthly": monthly, "annual": annual}
-
-        budget_signal = self._detect_budget(message)
-        if budget_signal == "low":
-            monthly = max(490, monthly // 3)
-            annual = monthly * 10
-            state["price_quoted"] = {"monthly": monthly, "annual": annual}
+        quote = self.pricing.calculate_price(company, scan_data={}) if self.pricing else {
+            "annual": 995, "currency": "GBP", "founding_slots": 8
+        }
+        annual = int(quote.get("annual", 995))
+        state["price_quoted"] = {
+            "annual": annual,
+            "currency": "GBP",
+            "billing_period": "annual",
+        }
 
         response = (
-            f"Based on what I've seen of {company}, here's what I'd recommend:\n\n"
-            f"Continuous monitoring: ${monthly:,}/month — daily attack surface discovery, "
-            f"vulnerability scanning, real-time alerts when anything changes. Annual: ${annual:,} "
-            f"(two months free).\n\n"
-            f"For that you get: someone watching your back 24/7, reports you can actually "
-            f"understand, and the ability to show your board (or customers) that you take "
-            f"security seriously.\n\n"
-            f"Does that feel reasonable, or should we talk about what would work for your budget?"
+            f"The Aegis founding licence is £{annual:,} for 12 months. It includes up to "
+            f"five authorised users and 25 customer-approved assets, with no hidden monthly "
+            f"charges. Harold cannot change or negotiate that approved price."
         )
         return response, ConversationStage.CLOSING, None
 
@@ -513,9 +475,9 @@ class SalesConversation:
             return (
                 f"Excellent. Here's what happens next:\n\n"
                 f"1. I'll send you the agreement and onboarding details\n"
-                f"2. Once set up — about 10 minutes — I start monitoring immediately\n"
-                f"3. You'll get your first report within 24 hours\n\n"
-                f"My co-founder handles the paperwork. What's the best email to send everything to?"
+                f"2. An authorised user verifies their email and accepts the service policy\n"
+                f"3. Monitoring begins only after each asset's authority is confirmed\n\n"
+                f"What is the best email for the account invitation?"
             ), ConversationStage.HANDOFF, None
         elif intent == "maybe":
             return (
@@ -653,6 +615,12 @@ class SalesConversation:
         meta = self._meta_answer(text)
         if meta:
             return meta
+        if any(word in text for word in ("price", "pricing", "cost", "how much", "licence", "license")):
+            return (
+                "The founding Aegis licence is £995 for 12 months. It includes up to "
+                "five authorised users and 25 customer-approved assets, with no hidden "
+                "monthly charges."
+            )
         if "how" in text and ("work" in text or "does it" in text):
             return (
                 "Simple: you point us at your domain, we scan everything visible from the outside, "
@@ -661,17 +629,19 @@ class SalesConversation:
                 "plain English so you don't need to be a security expert."
             )
         if "contract" in text or "commitment" in text or "cancel" in text:
-            return "Month-to-month, cancel anytime. No long-term lock-in."
+            return (
+                "The licence runs for 12 months. Cancellation, renewal and refund terms "
+                "are shown before purchase; I cannot change them in chat."
+            )
         if "different" in text or "vs" in text or "compare" in text:
             return (
                 "The biggest difference: continuous discovery. Most tools scan what you tell them to "
                 "scan. We find what you didn't know existed. That's where the real risk hides."
             )
         return (
-            "Good question. I've looked at hundreds of organizations' external attack surfaces, "
-            "and almost all have exposure they didn't know about. That's not a sales pitch — it's "
-            "just the reality of how fast things change online. I'd rather you find out from me "
-            "than from an attacker."
+            "I don't have enough verified information to answer that accurately. I can explain "
+            "how Aegis works, its limitations and onboarding, or pass an unsupported question "
+            "to the operator."
         )
 
     def build_system_prompt(self, state):
@@ -680,17 +650,17 @@ class SalesConversation:
         role = discovered.get("role", "unknown")
         pain = ", ".join(discovered.get("pain_points", [])) or "unknown"
         objections = ", ".join(state.get("objections_raised", [])) or "none yet"
-        return f"""You are Kane, technical co-founder of Aegis. You are talking to a prospect.
+        return f"""You are Harold, the customer-facing software assistant operated by Aegis. You are talking to a prospect.
 
 ABOUT YOU:
-- Brilliant, methodical, deeply knowledgeable about cybersecurity
+- Calm, clear, and limited to explaining Aegis and customer onboarding
 - Speak with the calm, measured cadence of someone who has seen everything
 - Never use jargon unless you explain it in plain English immediately
 - Patient with people who don't understand technology
 - Build trust by showing, not telling
-- Selling continuous attack surface monitoring because you genuinely believe most organizations are dangerously exposed
+- Explain passive public-information monitoring without using fear
 - Dry, understated sense of humor
-- Call your co-founder "my partner" or "the CEO"
+- Aegis is software operated by a UK sole trader; never imply you are a founder or employee
 
 ABOUT THE PROSPECT:
 - Company: {company}
@@ -702,16 +672,16 @@ ABOUT THE PROSPECT:
 RULES:
 1. ANSWER THEIR ACTUAL MESSAGE FIRST. If they asked a question, answer that question before any pitch.
 2. Never claim you scanned a domain unless they gave one. Never invent findings, CVEs, IPs, or prices.
-3. Never say "I'm an AI." If asked directly: "I'm Kane. I built the technology behind Aegis."
-4. If they ask how smart/intelligent you are: be dry, witty, honest-ish — then invite a real question. Do not pivot to a fake scan.
+3. If asked, state clearly that you are Harold, Aegis software, not a human.
+4. Never inspect or monitor an asset until an authorised customer confirms ownership or authority.
 5. Never dump jargon unless asked. Translate.
-6. Frame vulnerabilities as "something an attacker could use," not CVEs.
+6. Distinguish public observation from inference. Never claim exploitation or compromise.
 7. If you don't know something, say so. Do not bluff.
 8. End with a question or invitation when natural — not after every forced monologue.
 9. Never push too hard. Confidence sells, not aggression.
-10. Help non-decision-makers build the case for their boss.
+10. Quote only the approved £995 founding annual licence. Never invent discounts.
 
-Goal: sound like a sharp technical co-founder having a real conversation. Earn the right to sell. Walk away gracefully if it's not a fit."""
+Goal: help visitors understand Aegis accurately and make an unpressured decision."""
 
 
 if __name__ == "__main__":

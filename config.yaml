@@ -1,10 +1,8 @@
 # Finch - Autonomous AI Co-Founder Configuration
 
 identity:
-  name: "Finch"
+  name: "Harold"
   full_name: "Harold Finch"
-  alias: "The Machine"
-  voice_model: "michael_emerson"  # voice clone model name
   wake_words: ["finch", "harold"]
 
 personality:
@@ -49,9 +47,7 @@ voice:
     energy_threshold: 300
     pause_threshold: 1.0
   tts:
-    engine: "coqui_xtts"  # coqui_xtts / piper / elevenlabs
-    xtts_model: "tts_models/multilingual/multi-dataset/xtts_v2"
-    speaker_wav: "./data/audio/finch_reference.wav"  # reference clip for cloning
+    engine: "piper"
     piper_model: "en_US-lessac-medium"
   voice_activity_timeout: 30  # seconds before going to listening mode
 
@@ -73,17 +69,13 @@ sales:
     max_followups: 3
 
 pricing:
-  base_monthly: 299
-  max_monthly: 4999
-  factors:
-    company_size_weight: 0.25
-    asset_count_weight: 0.30
-    industry_risk_weight: 0.20
-    revenue_weight: 0.15
-    breach_history_weight: 0.10
-  negotiation:
-    max_discount: 25  # percent
-    annual_discount: 20  # percent for annual billing
+  currency: "GBP"
+  founding_annual_gbp: 995
+  standard_annual_gbp: 3000
+  founding_slots: 8
+  authorised_users: 5
+  approved_assets: 25
+  term_months: 12
 
 asm:
   scan_interval: 86400  # daily in seconds

@@ -36,6 +36,7 @@ from messaging.telegram_docs import FinchDocs
 from messaging.mail_store import MailStore
 from sales.pipeline import LeadPipeline
 from web import admin_brain
+from core.security import LoginThrottle, OwnerAuth, SESSION_COOKIE
 import yaml
 
 
@@ -49,7 +50,26 @@ def load_config():
 
 app = FastAPI(title="Aegis", version="2.0")
 config = load_config()
-ADMIN_PASSWORD = os.environ.get("FINCH_ADMIN_PASSWORD", "finch")
+owner_auth = OwnerAuth.from_environment()
+login_throttle = LoginThrottle()
+
+
+@app.middleware("http")
+async def protect_owner_api(request: Request, call_next):
+    """Require an expiring owner session and CSRF proof for private APIs."""
+    path = request.url.path
+    public_owner_paths = {"/api/admin/login", "/api/admin/session"}
+    if path.startswith("/api/admin/") and path not in public_owner_paths:
+        session = owner_auth.validate(request.cookies.get(SESSION_COOKIE))
+        if session is None:
+            return JSONResponse({"error": "authentication_required"}, status_code=401)
+        request.state.owner_session = session
+        if request.method not in {"GET", "HEAD", "OPTIONS"}:
+            import hmac
+            supplied = request.headers.get("x-csrf-token", "")
+            if not supplied or not hmac.compare_digest(supplied, session.csrf_token):
+                return JSONResponse({"error": "csrf_validation_failed"}, status_code=403)
+    return await call_next(request)
 
 # Serverless hosts (Vercel/Lambda) only allow writes under /tmp
 _IS_SERVERLESS = bool(
@@ -176,9 +196,9 @@ async def prospect_websocket(websocket: WebSocket, prospect_id: str):
         )
         prospect_sessions[prospect_id] = state
         greeting = (
-            "Hello. I'm Kane — I handle the technical side at Aegis. "
-            "You're here because you're wondering whether your organization has "
-            "security exposure you don't know about. What's on your mind?"
+            "Hello. I'm Harold, the Aegis customer guide. I can explain how our "
+            "passive, public-information monitoring works and help you decide whether "
+            "it fits your organisation. What would you like to know?"
         )
         await websocket.send_text(json.dumps({"type": "message", "content": greeting, "stage": state["stage"]}))
     else:
@@ -282,11 +302,63 @@ async def admin_panel():
 
 @app.post("/api/admin/login")
 async def admin_login(request: Request):
-    body = await request.json()
-    password = body.get("password", "")
-    if password == ADMIN_PASSWORD:
-        return JSONResponse({"authenticated": True, "token": "finch-session"})
-    return JSONResponse({"authenticated": False}, status_code=401)
+    client_key = request.client.host if request.client else "unknown"
+    if not login_throttle.allowed(client_key):
+        return JSONResponse(
+            {"authenticated": False, "error": "too_many_attempts"},
+            status_code=429,
+            headers={"Retry-After": "900"},
+        )
+    if not owner_auth.configured:
+        return JSONResponse(
+            {"authenticated": False, "error": "owner_login_not_configured"},
+            status_code=503,
+        )
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    password = str(body.get("password", ""))
+    if not owner_auth.check_password(password):
+        login_throttle.failure(client_key)
+        return JSONResponse({"authenticated": False, "error": "invalid_credentials"}, status_code=401)
+
+    login_throttle.reset(client_key)
+    token, session = owner_auth.issue()
+    response = JSONResponse({
+        "authenticated": True,
+        "csrf_token": session.csrf_token,
+        "expires_at": session.expires_at,
+    })
+    response.set_cookie(
+        SESSION_COOKIE,
+        token,
+        max_age=owner_auth.lifetime_seconds,
+        httponly=True,
+        secure=bool(os.environ.get("VERCEL") or request.url.scheme == "https"),
+        samesite="strict",
+        path="/",
+    )
+    return response
+
+
+@app.get("/api/admin/session")
+async def admin_session(request: Request):
+    session = owner_auth.validate(request.cookies.get(SESSION_COOKIE))
+    if session is None:
+        return JSONResponse({"authenticated": False}, status_code=401)
+    return JSONResponse({
+        "authenticated": True,
+        "csrf_token": session.csrf_token,
+        "expires_at": session.expires_at,
+    })
+
+
+@app.post("/api/admin/logout")
+async def admin_logout():
+    response = JSONResponse({"authenticated": False})
+    response.delete_cookie(SESSION_COOKIE, path="/", samesite="strict")
+    return response
 
 
 @app.get("/api/admin/dashboard")
@@ -364,9 +436,9 @@ async def api_prospect_chat(request: Request):
         _save_session("p", prospect_id, state)
         if start or not message or message.lower() in ("/reset", "/restart"):
             greeting = (
-                "Hello. I'm Kane — technical co-founder at Aegis. "
-                "We track what of your company is exposed on the open internet before "
-                "someone else does. What's on your mind?"
+                "Hello. I'm Harold, the Aegis customer guide. I can explain our "
+                "passive, public-information monitoring and help with onboarding. "
+                "What would you like to know?"
             )
             if message.lower() in ("/reset", "/restart"):
                 greeting = "Starting fresh. What can I help you with?"
@@ -454,7 +526,7 @@ async def api_prospect_chat(request: Request):
 
 @app.post("/api/admin/chat")
 async def api_admin_chat(request: Request):
-    """Co-founder chat — full living Kane, not a CRM parrot."""
+    """Private owner conversation with Harold."""
     body = await request.json()
     admin_id = (body.get("admin_id") or "phone")[:64]
     message = (body.get("content") or "").strip()
@@ -570,7 +642,7 @@ async def admin_delete_email(msg_id: str):
 
 @app.post("/api/admin/mail/config")
 async def admin_mail_config(request: Request):
-    """Save Gmail SMTP (or any SMTP) credentials. Tested before save."""
+    """Test credentials without persisting secrets; deployment secrets use env vars."""
     body = await request.json()
     action = (body.get("action") or "save").lower()
     if action == "clear":
@@ -594,11 +666,11 @@ async def admin_mail_test():
     to = cfg.get("from_address")
     draft = mail_store.compose(
         to=to,
-        subject="Aegis SMTP test — Kane is online",
+        subject="Aegis SMTP test — Harold is online",
         body=(
             "Hi,\n\nThis is a test from your Aegis command HQ. "
             "If you're reading this, outbound email is working.\n\n"
-            "— Kane"
+            "— Harold from Aegis"
         ),
         company="Aegis",
         as_draft=True,
@@ -727,6 +799,9 @@ async def admin_delete_lead(lead_id: str):
 @app.websocket("/ws/admin/{admin_id}")
 async def admin_websocket(websocket: WebSocket, admin_id: str):
     """Co-founder chat over WS (HTML uses HTTP; keep for local)."""
+    if owner_auth.validate(websocket.cookies.get(SESSION_COOKIE)) is None:
+        await websocket.close(code=4401, reason="Authentication required")
+        return
     await websocket.accept()
     session = admin_sessions.get(admin_id) or _load_session("a", admin_id) or {"history": []}
     admin_sessions[admin_id] = session
@@ -863,7 +938,7 @@ PROSPECT_HTML = """<!DOCTYPE html>
   <div class="chat-header">
     <div class="avatar">F</div>
     <div class="info">
-      <h3>Kane</h3>
+      <h3>Harold</h3>
       <span><span class="dot"></span>Online now</span>
     </div>
   </div>

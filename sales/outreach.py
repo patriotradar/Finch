@@ -1,4 +1,4 @@
-"""Outreach engine — Finch sends personalized cold emails."""
+"""Conservative outreach engine for Aegis."""
 
 import os, smtplib, ssl, time, random
 from email.mime.text import MIMEText
@@ -16,7 +16,7 @@ class OutreachEngine:
         self.config = config or {}
         self.smtp_host = self.config.get("smtp_host", "smtp.gmail.com")
         self.smtp_port = self.config.get("smtp_port", 587)
-        self.daily_limit = self.config.get("daily_limit", 30)
+        self.daily_limit = min(int(self.config.get("daily_limit", 20)), 20)
         self.sent_today = 0
         self.followup_sequence = self.config.get("followup_sequence", [2, 5, 10])
 
@@ -29,34 +29,32 @@ class OutreachEngine:
         best = vulns[0].get("finding", vulns[0].get("result", ""))
         best_plain = translate_text(best, "client")
         return {
-            "subject": f"Security finding for {company}",
-            "body": f"Hi,\n\nI'm Kane, technical co-founder at Aegis. We monitor "
-                    f"companies' external infrastructure — and {company} came up in our scans.\n\n"
-                    f"I found something on your domain I'd want to know about if it were mine:\n\n"
+            "subject": f"Public-information observation for {company}",
+            "body": f"Hi,\n\nI'm Harold from Aegis. During a limited review of public "
+                    f"information, Aegis recorded this potential indicator relating to {company}:\n\n"
                     f"{best_plain}\n\n"
-                    f"I'd be happy to walk you through the full picture — no pitch, just what "
-                    f"I found and what it means in plain English.\n\n"
+                    f"This is not evidence of exploitation and should be verified by your IT team. "
+                    f"I can explain the observation and the service limitations.\n\n"
                     f"{chat_ps}"
-                    f"Best,\nKane\n"
-                    f"Technical Co-Founder, Aegis"
+                    f"Best,\nHarold\nAegis"
         }
 
     def craft_followup_email(self, lead, seq):
         company = lead.get("company", "your company")
         templates = [
-            {"subject": f"Re: Security finding for {company}",
+            {"subject": f"Re: Aegis information for {company}",
              "body": f"Hi,\n\nI wanted to follow up on my earlier note. I know inboxes are brutal — "
-                     f"just making sure it didn't get buried.\n\nThe short version: your external attack "
-                     f"surface has exposures that attackers actively scan for. I can show you what and how "
-                     f"to fix it.\n\nNo pressure.\n\nKane"},
+                     f"just making sure it didn't get buried. If passive public-information monitoring "
+                     f"isn't relevant, no reply is needed and the opt-out link will stop all contact.\n\n"
+                     f"Best,\nHarold\nAegis"},
             {"subject": f"Quick security tip for {company}",
              "body": f"Hi,\n\nOne free tip while you think about it: make sure SPF, DKIM, and DMARC are "
-                     f"set up. This alone stops 90% of domain impersonation attacks. Happy to verify yours.\n\n"
-                     f"Kane"},
+                     f"reviewed by your IT team. Aegis can record the public configuration but does "
+                     f"not claim that a setting proves compromise.\n\nHarold\nAegis"},
             {"subject": f"Last note — {company}",
              "body": f"Hi,\n\nLast email from me. If the timing isn't right or you've got this covered, "
                      f"just say so and I'll stop.\n\nIf you do want the free assessment, reply \"yes.\"\n\n"
-                     f"Either way — I hope you never need what I build.\n\nKane"},
+                     f"Either way, this is the final follow-up.\n\nHarold\nAegis"},
         ]
         return templates[min(seq - 1, len(templates) - 1)]
 
@@ -69,7 +67,7 @@ class OutreachEngine:
         if self.sent_today >= self.daily_limit:
             return False
         msg = MIMEMultipart()
-        msg["From"] = f"Kane <{from_addr}>"
+        msg["From"] = f"Harold from Aegis <{from_addr}>"
         msg["To"] = to_address
         msg["Subject"] = content["subject"]
         msg.attach(MIMEText(content["body"], "plain"))
@@ -118,15 +116,13 @@ class OutreachEngine:
         company = lead.get("company", "your organization")
         chat_ps = self._chat_postscript()
         return {
-            "subject": f"Your external attack surface — {company}",
-            "body": f"Hi,\n\nI'm Kane, technical co-founder at Aegis. We monitor "
-                    f"companies' external infrastructure — and {company} has a digital footprint "
-                    f"worth protecting.\n\n"
-                    f"I'd be happy to show you what's visible from the outside — no charge, no "
-                    f"commitment. Takes about 90 seconds.\n\n"
+            "subject": f"Passive public-information monitoring for {company}",
+            "body": f"Hi,\n\nI'm Harold from Aegis. Aegis provides passive public-information "
+                    f"monitoring for customer-approved internet assets.\n\n"
+                    f"If that is relevant to {company}, you can read the short overview without "
+                    f"booking a call.\n\n"
                     f"{chat_ps}"
-                    f"Best,\nKane\n"
-                    f"Technical Co-Founder, Aegis"
+                    f"Best,\nHarold\nAegis"
         }
 
     def _chat_postscript(self):

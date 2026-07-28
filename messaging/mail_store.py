@@ -29,8 +29,6 @@ class MailStore:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self._data: Dict[str, Any] = {"messages": [], "leads": []}
         self._load()
-        if not self._data["messages"]:
-            self._seed()
 
     def _load(self) -> None:
         if self.path.exists():
@@ -47,115 +45,16 @@ class MailStore:
         except Exception as e:
             print(f"[MailStore] save failed: {e}")
 
-    def _seed(self) -> None:
-        """Demo content so the Emails tab never looks empty on first open."""
-        samples = [
-            {
-                "id": "seed-in-1",
-                "folder": "inbox",
-                "direction": "inbound",
-                "status": "unread",
-                "from": "jordan@northline.io",
-                "to": "kane@aegis.security",
-                "subject": "Re: Security finding for Northline",
-                "body": (
-                    "Kane — interesting. Who is this, and how'd you find that subdomain? "
-                    "I'm the CTO. Happy to hear more if this isn't a cold spray."
-                ),
-                "created_at": _now(),
-                "thread": "northline",
-                "company": "Northline",
-            },
-            {
-                "id": "seed-out-1",
-                "folder": "sent",
-                "direction": "outbound",
-                "status": "sent",
-                "from": "kane@aegis.security",
-                "to": "jordan@northline.io",
-                "subject": "Security finding for Northline",
-                "body": (
-                    "Hi Jordan,\n\nI'm Kane, technical co-founder at Aegis. "
-                    "We monitor external infrastructure — Northline came up in our scans.\n\n"
-                    "I found an exposed staging host on a stale DNS record. It's the kind of "
-                    "door attackers scan for first.\n\nHappy to walk you through it in plain "
-                    "English. No pitch — just the picture.\n\nBest,\nKane"
-                ),
-                "created_at": _now(),
-                "thread": "northline",
-                "company": "Northline",
-            },
-            {
-                "id": "seed-draft-1",
-                "folder": "drafts",
-                "direction": "outbound",
-                "status": "draft",
-                "from": "kane@aegis.security",
-                "to": "ceo@acmecorp.com",
-                "subject": "Security finding for Acme Corp",
-                "body": (
-                    "Hi,\n\nI'm Kane at Aegis. A quick external look at "
-                    "acmecorp.com surfaced a few items I'd want to know about if it were mine.\n\n"
-                    "Five-minute walkthrough, free, no commitment. Reply or chat here:\n"
-                    "{chat}\n\nKane"
-                ),
-                "created_at": _now(),
-                "thread": "acme",
-                "company": "Acme Corp",
-            },
-            {
-                "id": "seed-q-1",
-                "folder": "outbox",
-                "direction": "outbound",
-                "status": "queued",
-                "from": "kane@aegis.security",
-                "to": "ciso@brightpath.health",
-                "subject": "Quick note on Brightpath's external surface",
-                "body": (
-                    "Hi,\n\nKane here. Healthcare attack surfaces change quietly — "
-                    "patient portals, vendor SaaS, forgotten FHIR endpoints.\n\n"
-                    "I can show you a plain-English map of what's exposed from the outside.\n\n"
-                    "Kane"
-                ),
-                "created_at": _now(),
-                "thread": "brightpath",
-                "company": "Brightpath Health",
-            },
-        ]
-        chat = os.environ.get("FINCH_WEB_CHAT_URL", "https://finch-ocxl.vercel.app")
-        for m in samples:
-            m["body"] = m["body"].replace("{chat}", chat)
-            m["example"] = True
-        self._data["messages"] = samples
-        self._data["leads"] = [
-            {"company": "Northline", "email": "jordan@northline.io", "stage": "replied"},
-            {"company": "Acme Corp", "email": "ceo@acmecorp.com", "stage": "draft"},
-            {"company": "Brightpath Health", "email": "ciso@brightpath.health", "stage": "queued"},
-        ]
-        self._save()
-
     def _smtp_cfg_path(self) -> Path:
         return self.path.parent / "smtp_config.json"
 
-    def _load_smtp_file(self) -> Dict[str, Any]:
-        path = self._smtp_cfg_path()
-        if not path.exists():
-            return {}
-        try:
-            return json.loads(path.read_text(encoding="utf-8")) or {}
-        except Exception:
-            return {}
-
     def smtp_credentials(self) -> Dict[str, str]:
-        """Env wins; fallback to data-dir config (in-app setup)."""
-        file_cfg = self._load_smtp_file()
-        email = (os.environ.get("FINCH_EMAIL") or file_cfg.get("email") or "").strip()
-        password = (os.environ.get("FINCH_EMAIL_PASSWORD") or file_cfg.get("password") or "").strip()
-        host = (os.environ.get("FINCH_SMTP_HOST") or file_cfg.get("smtp_host") or "smtp.gmail.com").strip()
-        port = str(os.environ.get("FINCH_SMTP_PORT") or file_cfg.get("smtp_port") or "587").strip()
-        source = "env" if os.environ.get("FINCH_EMAIL") and os.environ.get("FINCH_EMAIL_PASSWORD") else (
-            "file" if email and password else "none"
-        )
+        """Read SMTP credentials only from protected runtime environment variables."""
+        email = (os.environ.get("FINCH_EMAIL") or "").strip()
+        password = (os.environ.get("FINCH_EMAIL_PASSWORD") or "").strip()
+        host = (os.environ.get("FINCH_SMTP_HOST") or "smtp.gmail.com").strip()
+        port = str(os.environ.get("FINCH_SMTP_PORT") or "587").strip()
+        source = "env" if email and password else "none"
         return {
             "email": email,
             "password": password,
@@ -178,8 +77,8 @@ class MailStore:
             "note": (
                 f"SMTP live via {c['source']} — queued mail can send from {c['email']}."
                 if self.smtp_ready()
-                else "Connect Gmail below (or set FINCH_EMAIL + FINCH_EMAIL_PASSWORD on Vercel). "
-                     "Drafts and queue still work without SMTP."
+                else "Set FINCH_EMAIL and FINCH_EMAIL_PASSWORD in the protected deployment "
+                     "environment. Drafts and queue still work without SMTP."
             ),
         }
 
@@ -208,15 +107,15 @@ class MailStore:
                     s.login(email, password)
             except Exception as e:
                 return {"ok": False, "error": f"login_failed: {e}"}
-        cfg = {
-            "email": email,
-            "password": password,
-            "smtp_host": smtp_host,
-            "smtp_port": smtp_port,
-            "updated_at": _now(),
+        return {
+            "ok": False,
+            "error": "environment_configuration_required",
+            "message": (
+                "Credentials were tested but not stored. Set FINCH_EMAIL, "
+                "FINCH_EMAIL_PASSWORD, FINCH_SMTP_HOST and FINCH_SMTP_PORT "
+                "in the protected deployment environment."
+            ),
         }
-        self._smtp_cfg_path().write_text(json.dumps(cfg, indent=2), encoding="utf-8")
-        return {"ok": True, **self.config_status()}
 
     def clear_smtp_config(self) -> Dict[str, Any]:
         path = self._smtp_cfg_path()
@@ -329,7 +228,7 @@ class MailStore:
         port = int(creds["smtp_port"] or "587")
         try:
             msg = MIMEMultipart()
-            msg["From"] = f"Kane <{from_addr}>"
+            msg["From"] = f"Harold from Aegis <{from_addr}>"
             msg["To"] = m["to"]
             msg["Subject"] = m["subject"]
             msg.attach(MIMEText(m.get("body") or "", "plain"))
@@ -366,7 +265,7 @@ class MailStore:
             "direction": "inbound",
             "status": "unread",
             "from": from_addr,
-            "to": to or self.smtp_credentials()["email"] or "kane@aegis.security",
+            "to": to or self.smtp_credentials()["email"] or "hello@aegis.security",
             "subject": subject,
             "body": body,
             "created_at": _now(),
@@ -390,24 +289,22 @@ class MailStore:
         company = company or "your organization"
         if finding:
             body = (
-                f"Hi,\n\nI'm Kane, technical co-founder at Aegis. "
-                f"We monitor external infrastructure — and {company} came up.\n\n"
-                f"I found something I'd want to know about if it were mine:\n\n"
+                f"Hi,\n\nI'm Harold from Aegis. During a limited review of public "
+                f"information, Aegis recorded this potential indicator relating to {company}:\n\n"
                 f"{finding}\n\n"
-                f"Happy to walk you through the full picture in plain English. "
-                f"No pitch, five minutes.\n\n"
+                f"This is not evidence of exploitation and should be verified by your IT team. "
+                f"I can explain the observation and Aegis's limitations.\n\n"
                 f"Or chat live: {chat}\n\n"
-                f"Best,\nKane\nTechnical Co-Founder, Aegis"
+                f"Best,\nHarold\nAegis"
             )
-            subject = f"Security finding for {company}"
+            subject = f"Public-information observation for {company}"
         else:
             body = (
-                f"Hi,\n\nI'm Kane at Aegis. I help teams see what "
-                f"their internet perimeter actually looks like from the outside.\n\n"
-                f"Most organizations have 3–5× more exposed assets than they track. "
-                f"I'd like to show you {company}'s picture — free, plain English, no commitment.\n\n"
+                f"Hi,\n\nI'm Harold from Aegis. Aegis provides passive public-information "
+                f"monitoring for assets a customer owns or is authorised to manage.\n\n"
+                f"If that is relevant to {company}, the short overview is available here:\n\n"
                 f"Chat: {chat}\n\n"
-                f"Kane"
+                f"Best,\nHarold\nAegis"
             )
-            subject = f"A quick look at {company}'s external surface"
+            subject = f"Passive public-information monitoring for {company}"
         return {"subject": subject, "body": body, "to": email, "company": company}

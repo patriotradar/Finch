@@ -343,10 +343,43 @@
   @media(min-width:900px){
     .main{padding-bottom:0 !important}
   }
+  .login-gate{
+    position:fixed;inset:0;z-index:100;display:grid;place-items:center;padding:24px;
+    background:radial-gradient(700px 420px at 50% 20%,rgba(52,211,153,.11),transparent 65%),#07070b;
+  }
+  .login-gate[hidden]{display:none}
+  .login-card{
+    width:min(100%,390px);padding:28px;border:1px solid var(--line2);border-radius:22px;
+    background:rgba(18,18,26,.96);box-shadow:0 30px 90px rgba(0,0,0,.5)
+  }
+  .login-card h1{font-size:25px;letter-spacing:-.03em;margin-top:18px}
+  .login-card p{color:var(--muted);font-size:14px;line-height:1.5;margin:8px 0 22px}
+  .login-card label{display:block;font-size:12px;font-weight:700;color:var(--muted);margin-bottom:7px}
+  .login-card input{
+    width:100%;padding:13px 14px;border:1px solid var(--line2);border-radius:11px;
+    background:var(--bg);color:var(--text);font:inherit;outline:none
+  }
+  .login-card input:focus{border-color:var(--green)}
+  .login-card button{
+    width:100%;margin-top:12px;padding:13px;border:0;border-radius:11px;
+    background:var(--green);color:#032116;font:inherit;font-weight:750;cursor:pointer
+  }
+  .login-error{min-height:20px;margin-top:12px;color:var(--red);font-size:12px}
 
 </style>
 </head>
 <body>
+<div class="login-gate" id="loginGate">
+  <form class="login-card" id="loginForm">
+    <div class="logo">A</div>
+    <h1>Owner access</h1>
+    <p>Sign in to Aegis Command. Your session expires automatically after eight hours.</p>
+    <label for="ownerPassword">Password</label>
+    <input id="ownerPassword" name="password" type="password" autocomplete="current-password" required>
+    <button id="loginButton" type="submit">Sign in securely</button>
+    <div class="login-error" id="loginError" role="alert"></div>
+  </form>
+</div>
 <div class="shell">
   <aside class="side">
     <div class="brand">
@@ -361,7 +394,7 @@
     <button class="nav-btn active" data-tab="home" type="button"><span class="ic">⌂</span> Home</button>
     <button class="nav-btn" data-tab="mail" type="button"><span class="ic">✉</span> Mail</button>
     <button class="nav-btn" data-tab="leads" type="button"><span class="ic">◎</span> Leads</button>
-    <button class="nav-btn" data-tab="chat" type="button"><span class="ic">✦</span> Kane</button>
+    <button class="nav-btn" data-tab="chat" type="button"><span class="ic">✦</span> Harold</button>
     <button class="nav-btn" data-tab="more" type="button"><span class="ic">☰</span> Business</button>
     <div style="flex:1"></div>
     <div class="note" id="sideNote" style="margin:8px">Loading…</div>
@@ -385,13 +418,13 @@
     </div>
 
     <div id="chatBar" class="composer" style="display:none" aria-hidden="true">
-      <button type="button" id="chatSpeak" class="ghost on" title="Kane speaks replies" aria-label="Toggle Kane voice" aria-pressed="true">
+      <button type="button" id="chatSpeak" class="ghost on" title="Harold speaks replies" aria-label="Toggle Harold voice" aria-pressed="true">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5 6 9H3v6h3l5 4V5z"/><path d="M15.5 8.5a4.5 4.5 0 0 1 0 7"/><path d="M18.5 5.5a8.5 8.5 0 0 1 0 13"/></svg>
       </button>
       <button type="button" id="chatMic" class="ghost" title="Hold or tap to talk" aria-label="Voice input">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3z"/><path d="M19 11a7 7 0 0 1-14 0"/><path d="M12 18v3"/></svg>
       </button>
-      <input id="chatMsg" type="text" placeholder="Message Kane… or hold mic" autocomplete="off" enterkeyhint="send" aria-label="Message Kane">
+      <input id="chatMsg" type="text" placeholder="Message Harold… or hold mic" autocomplete="off" enterkeyhint="send" aria-label="Message Harold">
       <button type="button" id="chatSend" aria-label="Send">↑</button>
     </div>
   </div>
@@ -403,7 +436,7 @@
       <span class="nb" id="mailBadge">0</span>
     </button>
     <button type="button" data-tab="leads"><span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg></span>Leads</button>
-    <button type="button" data-tab="chat"><span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/></svg></span>Kane</button>
+    <button type="button" data-tab="chat"><span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/></svg></span>Harold</button>
     <button type="button" data-tab="more"><span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></span>More</button>
   </nav>
 </div>
@@ -416,6 +449,7 @@
     mailFolder: 'inbox',
     dash: null,
     chatReady: false,
+    csrfToken: '',
     adminId: localStorage.getItem('finch_admin_id') || ('a-' + Math.random().toString(36).slice(2, 10)),
   };
   localStorage.setItem('finch_admin_id', state.adminId);
@@ -444,7 +478,7 @@
   function setBrain(online) {
     const p = $('brainPill');
     p.className = 'pill-status' + (online ? ' on' : '');
-    p.innerHTML = '<span class="d"></span><span>' + (online ? 'Kane online' : 'Brain offline') + '</span>';
+    p.innerHTML = '<span class="d"></span><span>' + (online ? 'Harold online' : 'Assistant offline') + '</span>';
   }
 
   function setBadge(n) {
@@ -464,8 +498,20 @@
   }
 
   async function api(url, opts) {
+    opts = opts || {};
+    opts.headers = Object.assign({}, opts.headers || {});
+    if (state.csrfToken && !['GET', 'HEAD'].includes((opts.method || 'GET').toUpperCase())) {
+      opts.headers['X-CSRF-Token'] = state.csrfToken;
+    }
     const r = await fetch(url, opts);
-    if (!r.ok) throw new Error('http ' + r.status);
+    if (r.status === 401) {
+      $('loginGate').hidden = false;
+      throw new Error('authentication_required');
+    }
+    if (!r.ok) {
+      const data = await r.json().catch(() => ({}));
+      throw new Error(data.error || ('http ' + r.status));
+    }
     return r.json();
   }
 
@@ -479,7 +525,7 @@
       home: ['Home', 'What needs you'],
       mail: ['Mail', 'Inbox · drafts · outbox'],
       leads: ['Leads', 'Find companies · emails · outreach'],
-      chat: ['Kane', 'Technical co-founder'],
+      chat: ['Harold', 'Private owner assistant'],
       more: ['Business', 'Handoffs · clients · docs'],
     };
     $('topTitle').textContent = titles[tab][0];
@@ -552,26 +598,26 @@
     if ((d.active_conversations || 0) > 0) {
       actions += '<div class="action"><div class="dot live">●</div><div><div class="t">' +
         d.active_conversations + ' live prospect chat' + (d.active_conversations > 1 ? 's' : '') +
-        '</div><div class="s">Kane is talking on the public page right now.</div></div></div>';
+        '</div><div class="s">Harold is assisting a visitor on the public page.</div></div></div>';
     }
     if (!actions) {
       actions = '<div class="empty" style="padding:20px 8px">' +
         '<h4 style="font-size:15px;margin-bottom:6px">Clear board</h4>' +
-        'No urgent handoffs. Open Mail to work outreach, or talk to Kane.</div>';
+        'No urgent handoffs. Open Mail to work outreach, or talk to Harold.</div>';
     }
 
     const nextSteps =
       '<div class="card" style="margin-top:4px">' +
-      '<div class="sec-head"><h3>Work with Kane</h3></div>' +
+      '<div class="sec-head"><h3>Work with Harold</h3></div>' +
       '<div class="row">' +
-      '<button type="button" class="btn sm" data-go="chat">Talk to Kane</button>' +
+      '<button type="button" class="btn sm" data-go="chat">Talk to Harold</button>' +
       '<button type="button" class="btn ghost sm" data-go="mail">Compose outreach</button>' +
       '<a class="btn ghost sm" href="/" target="_blank" rel="noopener">Open public chat</a>' +
       '</div></div>';
 
     content.innerHTML =
       '<div class="greet"><div class="hi">' + greetLine() + '</div>' +
-      '<div class="sub">Kane is ' + (d.brain_online ? 'online and working with you.' : 'offline — replies may be limited.') +
+      '<div class="sub">Harold is ' + (d.brain_online ? 'online and working with you.' : 'offline — replies may be limited.') +
       ' Here is what needs attention.</div></div>' +
       '<div class="stats">' +
       '<div class="stat"><div class="k">Unread mail</div><div class="v ' + ((mail.unread||0)?'a':'g') + '">' + (mail.unread||0) + '</div><div class="h">' + (mail.inbox||0) + ' in inbox</div></div>' +
@@ -613,7 +659,7 @@
         actions += '<button type="button" class="btn green sm" id="mailSend">Send / Queue</button>';
       }
       if (m.folder === 'inbox') {
-        actions += '<button type="button" class="btn sm" id="mailReply">Reply with Kane</button>';
+        actions += '<button type="button" class="btn sm" id="mailReply">Reply with Harold</button>';
       }
       actions += '<button type="button" class="btn danger sm" id="mailDel">Delete</button>';
       content.innerHTML =
@@ -651,11 +697,11 @@
     ];
     let html = '';
     if (!cfg.configured) {
-      html += '<div class="card"><div class="sec-head"><h3>Connect Gmail</h3></div>' +
-        '<div class="note" style="margin-bottom:12px">Use a Gmail <b style="color:var(--text)">App Password</b> (Google Account → Security → 2-Step → App passwords). Normal login password will not work.</div>' +
-        '<div class="field"><label>Gmail address</label><input id="smtpEmail" type="email" placeholder="you@gmail.com" autocomplete="username"></div>' +
-        '<div class="field"><label>App password (16 letters)</label><input id="smtpPass" type="password" placeholder="xxxx xxxx xxxx xxxx" autocomplete="current-password"></div>' +
-        '<button type="button" class="btn green sm" id="btnSmtpSave">Connect & test login</button></div>';
+      html += '<div class="card"><div class="sec-head"><h3>Email configuration</h3></div>' +
+        '<div class="note">For security, Aegis never stores email passwords in the dashboard. ' +
+        'Configure <b style="color:var(--text)">FINCH_EMAIL</b> and ' +
+        '<b style="color:var(--text)">FINCH_EMAIL_PASSWORD</b> as protected deployment variables. ' +
+        'Existing FINCH_* names remain supported.</div></div>';
     } else {
       html += '<div class="note" style="border-style:solid;border-color:rgba(52,211,153,.25);color:var(--green)">' +
         'SMTP connected · ' + esc(cfg.from_address || '') +
@@ -672,9 +718,9 @@
       '<div class="sec-head"><h3>New outreach</h3></div>' +
       '<div class="field"><label>Company</label><input id="cCompany" placeholder="Acme Corp" autocomplete="organization"></div>' +
       '<div class="field"><label>To</label><input id="cTo" placeholder="cto@acme.com" inputmode="email" autocomplete="email"></div>' +
-      '<div class="field"><label>Finding / hook (optional)</label><input id="cFinding" placeholder="Exposed staging subdomain"></div>' +
+      '<div class="field"><label>Verified public observation (optional)</label><input id="cFinding" placeholder="Use factual evidence only"></div>' +
       '<div class="row" style="margin-top:4px">' +
-      '<button type="button" class="btn sm" id="btnCraft">Draft with Kane</button>' +
+      '<button type="button" class="btn sm" id="btnCraft">Draft with Harold</button>' +
       '<button type="button" class="btn ghost sm" id="btnManual">Write manually</button></div>' +
       '<div id="manualBox" style="display:none;margin-top:12px">' +
       '<div class="field"><label>Subject</label><input id="cSubj" placeholder="Subject"></div>' +
@@ -683,7 +729,7 @@
 
     const msgs = d.messages || [];
     if (!msgs.length) {
-      html += '<div class="empty"><div class="big">✉</div><h4>No messages here</h4>Draft outreach above — Kane will write it with you.</div>';
+      html += '<div class="empty"><div class="big">✉</div><h4>No messages here</h4>Draft outreach above — Harold will help write it.</div>';
     } else {
       msgs.forEach(m => {
         const unread = m.status === 'unread' ? ' unread' : '';
@@ -702,23 +748,6 @@
     }
     content.innerHTML = html;
 
-    const bsSmtp = $('btnSmtpSave');
-    if (bsSmtp) bsSmtp.onclick = async () => {
-      const email = ($('smtpEmail').value || '').trim();
-      const password = ($('smtpPass').value || '').trim();
-      if (!email || !password) { toast('Enter Gmail + app password'); return; }
-      bsSmtp.disabled = true; bsSmtp.textContent = 'Testing login…';
-      try {
-        const r = await api('/api/admin/mail/config', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password })
-        });
-        if (r.ok) { toast('Gmail connected'); renderMail(null); }
-        else { toast((r.error || 'Login failed').slice(0, 80)); bsSmtp.disabled = false; bsSmtp.textContent = 'Connect & test login'; }
-      } catch (e) {
-        toast('Could not connect'); bsSmtp.disabled = false; bsSmtp.textContent = 'Connect & test login';
-      }
-    };
     const bt = $('btnSmtpTest');
     if (bt) bt.onclick = async () => {
       toast('Sending test…');
@@ -730,8 +759,8 @@
         renderMail(null);
       } catch (e) { toast('Test failed'); }
     };
-    const bc = $('btnSmtpClear');
-    if (bc) bc.onclick = async () => {
+    const smtpClearButton = $('btnSmtpClear');
+    if (smtpClearButton) smtpClearButton.onclick = async () => {
       await api('/api/admin/mail/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'clear' }) });
       toast('Disconnected'); renderMail(null);
     };
@@ -742,8 +771,8 @@
     content.querySelectorAll('[data-open]').forEach(el => {
       el.onclick = () => renderMail(el.getAttribute('data-open'));
     });
-    const bc = $('btnCraft');
-    if (bc) bc.onclick = craftMail;
+    const craftButton = $('btnCraft');
+    if (craftButton) craftButton.onclick = craftMail;
     const bm = $('btnManual');
     if (bm) bm.onclick = () => {
       const box = $('manualBox');
@@ -770,7 +799,7 @@
       renderMail(null);
     } catch (e) {
       toast('Could not draft');
-      btn.disabled = false; btn.textContent = 'Draft with Kane';
+      btn.disabled = false; btn.textContent = 'Draft with Harold';
     }
   }
 
@@ -859,9 +888,9 @@
       }
 
       html += '<div class="card"><div class="sec-head"><h3>Outreach</h3></div>' +
-        '<div style="font-size:13px;color:var(--muted);line-height:1.55;margin-bottom:12px">Kane will open with the strongest finding for ' + esc(l.company || l.domain) + ' and write to <b style="color:var(--text)">' + esc(l.selected_email || 'no email picked yet') + '</b>.</div>' +
+        '<div style="font-size:13px;color:var(--muted);line-height:1.55;margin-bottom:12px">Harold will draft from verified public observations for ' + esc(l.company || l.domain) + ' and write to <b style="color:var(--text)">' + esc(l.selected_email || 'no email picked yet') + '</b>.</div>' +
         '<div class="row">' +
-        '<button type="button" class="btn sm" id="leadDraft"' + (l.selected_email ? '' : ' disabled') + '>Draft with Kane</button>' +
+        '<button type="button" class="btn sm" id="leadDraft"' + (l.selected_email ? '' : ' disabled') + '>Draft with Harold</button>' +
         '<button type="button" class="btn green sm" id="leadSend"' + (l.selected_email ? '' : ' disabled') + '>Draft + Send</button></div></div>';
 
       content.innerHTML = html;
@@ -890,8 +919,8 @@
         try {
           const r = await api('/api/admin/leads/' + encodeURIComponent(openId) + '/draft', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
           if (r.ok) { toast('Draft ready in Mail \u00b7 Drafts'); state.mailFolder = 'drafts'; switchTab('mail'); }
-          else { toast(r.error || 'Draft failed'); ld.disabled = false; ld.textContent = 'Draft with Kane'; }
-        } catch (e) { toast('Draft failed'); ld.disabled = false; ld.textContent = 'Draft with Kane'; }
+          else { toast(r.error || 'Draft failed'); ld.disabled = false; ld.textContent = 'Draft with Harold'; }
+        } catch (e) { toast('Draft failed'); ld.disabled = false; ld.textContent = 'Draft with Harold'; }
       };
       const ls = $('leadSend');
       if (ls) ls.onclick = async () => {
@@ -917,11 +946,11 @@
       '<div class="stat"><div class="k">With emails</div><div class="v g">' + (sum.with_emails||0) + '</div><div class="h">ready to contact</div></div></div>';
 
     if (!d.hunter) {
-      html += '<div class="note">Tip: set <b style="color:var(--text)">HUNTER_API_KEY</b> (hunter.io, free tier) on Vercel to pull named people at each company \u2014 otherwise Kane finds public + role emails from the website itself.</div>';
+      html += '<div class="note">Tip: set <b style="color:var(--text)">HUNTER_API_KEY</b> on Vercel to retrieve sourced business contacts; otherwise Harold uses publicly listed business addresses.</div>';
     }
 
     if (!leads.length) {
-      html += '<div class="empty"><div class="big">\u25ce</div><h4>No leads yet</h4>Drop in a domain above. Kane maps its public surface and finds the emails to write to.</div>';
+      html += '<div class="empty"><div class="big">\u25ce</div><h4>No leads yet</h4>Add a company domain to research its public business information.</div>';
     } else {
       leads.forEach(l => {
         const n = (l.emails || []).length;
@@ -1003,7 +1032,7 @@
   function stopSpeaking() {
     try { if (window.speechSynthesis) speechSynthesis.cancel(); } catch (e) {}
   }
-  function speakKane(text) {
+  function speakHarold(text) {
     if (!voice.speakOn || !ttsSupported() || !text) return;
     stopSpeaking();
     const u = new SpeechSynthesisUtterance(String(text).replace(/\s+/g, ' ').trim());
@@ -1030,7 +1059,7 @@
     if (!b) return;
     b.classList.toggle('on', voice.speakOn);
     b.setAttribute('aria-pressed', voice.speakOn ? 'true' : 'false');
-    b.title = voice.speakOn ? 'Kane speaks replies (on)' : 'Kane speaks replies (off)';
+    b.title = voice.speakOn ? 'Harold speaks replies (on)' : 'Harold speaks replies (off)';
   }
   function getRecognizer() {
     if (voice.rec) return voice.rec;
@@ -1113,7 +1142,7 @@
         localStorage.setItem('aegis_speak', voice.speakOn ? '1' : '0');
         if (!voice.speakOn) stopSpeaking();
         setSpeakUI();
-        toast(voice.speakOn ? 'Kane will speak replies' : 'Kane voice off');
+        toast(voice.speakOn ? 'Harold will speak replies' : 'Harold voice off');
       };
     }
     if (mic) {
@@ -1144,13 +1173,13 @@
     if (who !== 'you') {
       const w = document.createElement('div');
       w.className = 'who';
-      w.textContent = 'Kane';
+      w.textContent = 'Harold';
       div.appendChild(w);
     }
     div.appendChild(document.createTextNode(text));
     stream.appendChild(div);
     stream.scrollTop = stream.scrollHeight;
-    if (who !== 'you' && opts.speak !== false) speakKane(text);
+    if (who !== 'you' && opts.speak !== false) speakHarold(text);
     return div;
   }
 
@@ -1226,7 +1255,7 @@
 
     html += '<div class="card"><div class="sec-head"><h3>Documents</h3></div>';
     if (!docs.length) {
-      html += '<p style="font-size:13px;color:var(--muted);line-height:1.5">No docs yet. Ask Kane to draft a one-pager, MSA outline, or scan summary in chat.</p>';
+      html += '<p style="font-size:13px;color:var(--muted);line-height:1.5">No documents yet. Ask Harold to draft a product summary or report outline.</p>';
     } else {
       docs.forEach(doc => {
         html += '<div style="padding:8px 0;border-top:1px solid var(--line);font-size:13px">' + esc(doc.name) + '</div>';
@@ -1245,10 +1274,51 @@
     content.innerHTML = html;
   }
 
-  // boot on home
-  switchTab('home');
-  // soft refresh badge every 45s
-  setInterval(() => { loadDash().catch(() => {}); }, 45000);
+  async function establishSession() {
+    const response = await fetch('/api/admin/session');
+    if (!response.ok) return false;
+    const session = await response.json();
+    state.csrfToken = session.csrf_token || '';
+    $('loginGate').hidden = true;
+    switchTab('home');
+    return true;
+  }
+
+  $('loginForm').addEventListener('submit', async function(event) {
+    event.preventDefault();
+    const button = $('loginButton');
+    const error = $('loginError');
+    button.disabled = true;
+    button.textContent = 'Signing in…';
+    error.textContent = '';
+    try {
+      const response = await fetch('/api/admin/login', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({password: $('ownerPassword').value})
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(
+        data.error === 'too_many_attempts' ? 'Too many attempts. Try again later.' :
+        data.error === 'owner_login_not_configured' ? 'Owner login has not been configured.' :
+        'That password was not accepted.'
+      );
+      state.csrfToken = data.csrf_token || '';
+      $('ownerPassword').value = '';
+      $('loginGate').hidden = true;
+      switchTab('home');
+    } catch (err) {
+      error.textContent = err.message || 'Sign-in failed.';
+    } finally {
+      button.disabled = false;
+      button.textContent = 'Sign in securely';
+    }
+  });
+
+  establishSession().catch(() => {});
+  setInterval(() => {
+    if ($('loginGate').hidden) loadDash().catch(() => {});
+  }, 45000);
 })();
 </script>
 </body>

@@ -192,7 +192,7 @@ This is how cold emails turn into closed deals without you touching anything:
        ↓
 3. IMAP listener detects reply → routes to SalesConversation engine
        ↓
-4. Finch responds: "I'm Harold, technical co-founder at Finch Security..."
+4. Harold responds accurately as the Aegis customer software assistant.
        ↓
 5. 6-8 messages later: "Let's do it. Send the contract to sarah@bigbank.com"
        ↓

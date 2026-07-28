@@ -2,7 +2,7 @@
 """
 Aegis — Autonomous AI Co-Founder for Attack Surface Management
 ==============================================================
-Kane lives here. He monitors, sells, prices, negotiates,
+Harold lives here. He monitors, supports customers,
 and talks to you like a partner — not a tool.
 
 Usage:

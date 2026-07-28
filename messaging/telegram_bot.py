@@ -199,7 +199,7 @@ class FinchTelegram:
 
             try:
                 msg = MIMEMultipart()
-                msg["From"] = f"Kane <{from_addr}>"
+                msg["From"] = f"Harold from Aegis <{from_addr}>"
                 msg["To"] = email
                 msg["Subject"] = f"Onboarding documents from Aegis"
 
@@ -207,7 +207,7 @@ class FinchTelegram:
                     f"Hi,\n\n"
                     f"As promised, here's the paperwork to get started with Aegis.\n\n"
                     f"If you have any questions, reply here or reach me on Telegram.\n\n"
-                    f"Best,\nKane\nTechnical Co-Founder"
+                    f"Best,\nHarold\nAegis"
                 )
                 msg.attach(MIMEText(body, "plain"))
 
