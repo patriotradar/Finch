@@ -156,7 +156,9 @@ class AccountService:
         active = self.authenticate(raw_token)
         active.revoked_at = utcnow()
 
-    def invite_user(self, workspace_id: str, email: str, temporary_password: str) -> tuple[WorkspaceUser, str]:
+    def invite_user(
+        self, workspace_id: str, email: str, temporary_password: str | None = None
+    ) -> tuple[WorkspaceUser, str]:
         count = self.session.scalar(
             select(func.count()).select_from(WorkspaceUser).where(
                 WorkspaceUser.workspace_id == workspace_id,
@@ -166,7 +168,9 @@ class AccountService:
         if int(count or 0) >= MAX_USERS:
             raise ValueError("user_limit_reached")
         email = normalize_email(email)
-        validate_password(temporary_password)
+        if self.session.scalar(select(WorkspaceUser.id).where(WorkspaceUser.email == email)):
+            raise ValueError("email_already_registered")
+        temporary_password = temporary_password or secrets.token_urlsafe(32)
         user = WorkspaceUser(
             workspace_id=workspace_id,
             email=email,
@@ -175,7 +179,33 @@ class AccountService:
         )
         self.session.add(user)
         self.session.flush()
-        return user, self._issue_account_token(user.id, "verify_email")
+        return user, self._issue_account_token(user.id, "accept_invite")
+
+    def accept_invite(self, raw_token: str, password: str) -> WorkspaceUser:
+        validate_password(password)
+        token = self._consume_account_token(raw_token, "accept_invite")
+        user = self.session.get(WorkspaceUser, token.user_id)
+        if user is None or user.disabled_at is not None:
+            raise ValueError("invalid_or_expired_token")
+        user.password_hash = hash_password(password)
+        user.email_verified_at = utcnow()
+        return user
+
+    def disable_user(self, workspace_id: str, actor_user_id: str, user_id: str) -> None:
+        if actor_user_id == user_id:
+            raise ValueError("cannot_disable_self")
+        user = self.session.scalar(select(WorkspaceUser).where(
+            WorkspaceUser.id == user_id,
+            WorkspaceUser.workspace_id == workspace_id,
+            WorkspaceUser.disabled_at.is_(None),
+        ))
+        if user is None or user.role == Role.OWNER:
+            raise LookupError("user_not_found")
+        user.disabled_at = utcnow()
+        self.session.query(CustomerSession).filter(
+            CustomerSession.user_id == user.id,
+            CustomerSession.revoked_at.is_(None),
+        ).update({"revoked_at": utcnow()})
 
     def accept_policy(
         self, workspace_id: str, user_id: str, policy_name: str,

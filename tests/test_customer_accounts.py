@@ -100,6 +100,22 @@ def test_five_user_limit_is_enforced(factory):
             service.invite_user(workspace_id, "sixth@example.test", "TemporaryPassword6")
 
 
+def test_invitation_sets_password_and_disabled_user_loses_sessions(factory):
+    owner_id, workspace_id, _ = registered(factory)
+    with factory() as session:
+        service = AccountService(session)
+        member, invitation = service.invite_user(workspace_id, "member@example.test")
+        member_id = member.id
+        service.accept_invite(invitation, "MemberPassword42")
+        session.commit()
+        issued = service.login("member@example.test", "MemberPassword42")
+        session.commit()
+        service.disable_user(workspace_id, owner_id, member_id)
+        session.commit()
+        with pytest.raises(PermissionError):
+            service.authenticate(issued.token)
+
+
 def test_agreement_records_exact_policy_hash(factory):
     user_id, workspace_id, _ = registered(factory)
     policy_hash = hashlib.sha256(b"public-information-policy-v1").hexdigest()
@@ -114,4 +130,3 @@ def test_agreement_records_exact_policy_hash(factory):
         )
         session.commit()
         assert record.policy_text_hash == policy_hash
-

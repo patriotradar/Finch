@@ -59,3 +59,17 @@ class AccountMailer:
             f"{link}\n\nThe link expires after 24 hours. If you did not request this, "
             "you can ignore the message.\n\nHarold\nAegis",
         )
+
+    def send_invitation(self, recipient: str, token: str, company_name: str) -> bool:
+        base = self._base_url()
+        if not base:
+            return False
+        link = f"{base}/account?invite={quote(token)}"
+        return self._send(
+            recipient,
+            f"You have been invited to {company_name} on Aegis",
+            f"You have been invited to the {company_name} Aegis workspace.\n\n"
+            "Choose your password using this one-time link:\n\n"
+            f"{link}\n\nThe link expires after 24 hours. If you were not expecting "
+            "this invitation, you can ignore it.\n\nHarold\nAegis",
+        )

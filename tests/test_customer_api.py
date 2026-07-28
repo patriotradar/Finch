@@ -63,3 +63,51 @@ def test_customer_session_and_logout(monkeypatch):
         assert api.post("/api/account/logout", headers={"X-CSRF-Token": csrf}).status_code == 200
         assert api.get("/api/account/session").status_code == 401
 
+
+def test_owner_invites_user_and_member_accepts(monkeypatch):
+    with client(monkeypatch) as api:
+        csrf = verified_login(api)
+        invited = api.post(
+            "/api/account/users/invite",
+            json={"email": "member@alpha.example"},
+            headers={"X-CSRF-Token": csrf},
+        )
+        assert invited.status_code == 201
+        token = invited.json()["invitation_token"]
+        assert api.post("/api/account/users/accept-invite", json={
+            "token": token,
+            "password": "MemberPassword42",
+        }).status_code == 200
+        users = api.get("/api/account/users").json()["users"]
+        assert len(users) == 2
+        assert any(user["email"] == "member@alpha.example" and user["verified"] for user in users)
+        assert api.post("/api/account/logout", headers={"X-CSRF-Token": csrf}).status_code == 200
+        member_login = api.post("/api/account/login", json={
+            "email": "member@alpha.example",
+            "password": "MemberPassword42",
+        })
+        assert member_login.status_code == 200
+        assert api.get("/api/account/users").status_code == 401
+        assert api.post(
+            "/api/account/cancel",
+            headers={"X-CSRF-Token": member_login.json()["csrf_token"]},
+        ).status_code == 401
+
+
+def test_workspace_export_is_tenant_scoped_and_cancellation_revokes_session(monkeypatch):
+    with client(monkeypatch) as api:
+        csrf = verified_login(api)
+        api.post(
+            "/api/account/assets",
+            json={"value": "alpha.example", "authority_confirmed": True},
+            headers={"X-CSRF-Token": csrf},
+        )
+        exported = api.get("/api/account/export")
+        assert exported.status_code == 200
+        assert exported.json()["workspace"]["company_name"] == "Alpha Ltd"
+        assert exported.json()["assets"][0]["value"] == "alpha.example"
+        assert "password_hash" not in exported.text
+
+        cancelled = api.post("/api/account/cancel", headers={"X-CSRF-Token": csrf})
+        assert cancelled.status_code == 200
+        assert api.get("/api/account/session").status_code == 401

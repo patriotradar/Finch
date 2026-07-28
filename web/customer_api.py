@@ -14,7 +14,8 @@ from sqlalchemy import select
 
 from core.accounts import AccountService
 from core.models import (
-    ApprovedAsset, AssetStatus, CustomerAlert, Report, Workspace,
+    AgreementAcceptance, ApprovedAsset, AssetStatus, CustomerAlert, Observation,
+    Report, Role, Workspace, WorkspaceUser, utcnow,
 )
 from core.security import LoginThrottle
 from core.tenant import require_workspace_user
@@ -47,6 +48,12 @@ class PasswordResetRequest(BaseModel):
 class PasswordResetBody(TokenBody):
     password: str = Field(min_length=12, max_length=200)
 
+class InviteBody(BaseModel):
+    email: str = Field(min_length=3, max_length=320)
+
+class AcceptInviteBody(TokenBody):
+    password: str = Field(min_length=12, max_length=200)
+
 
 class AssetBody(BaseModel):
     value: str = Field(min_length=3, max_length=300)
@@ -73,13 +80,15 @@ def build_customer_router(session_factory, account_mailer=None) -> APIRouter:
             "invalid_domain", "asset_limit_reached", "user_limit_reached",
             "invalid_policy_hash", "asset_not_found", "workspace_access_denied",
             "alert_not_found", "report_not_found",
+            "user_not_found", "cannot_disable_self", "owner_access_required",
+            "workspace_already_cancelled",
         }
         if code not in allowed:
             return JSONResponse({"error": "request_failed"}, status_code=500)
         status = 401 if isinstance(error, PermissionError) else 400
         if code in {"email_already_registered"}:
             status = 409
-        if code in {"asset_not_found", "alert_not_found", "report_not_found"}:
+        if code in {"asset_not_found", "alert_not_found", "report_not_found", "user_not_found"}:
             status = 404
         return JSONResponse({"error": code}, status_code=status)
 
@@ -221,6 +230,88 @@ def build_customer_router(session_factory, account_mailer=None) -> APIRouter:
                     }
                     for asset in assets
                 ]}
+            finally:
+                db.close()
+        except Exception as error:
+            return error_response(error)
+
+    @router.get("/users")
+    def list_users(aegis_customer_session: str | None = Cookie(default=None)):
+        try:
+            db, _, active, actor = customer_context(aegis_customer_session)
+            try:
+                if actor.role not in {Role.OWNER, Role.ADMIN}:
+                    raise PermissionError("owner_access_required")
+                users = db.scalars(select(WorkspaceUser).where(
+                    WorkspaceUser.workspace_id == active.workspace_id
+                ).order_by(WorkspaceUser.created_at)).all()
+                return {"users": [{
+                    "id": item.id,
+                    "email": item.email,
+                    "role": item.role.value,
+                    "verified": item.email_verified_at is not None,
+                    "disabled": item.disabled_at is not None,
+                } for item in users]}
+            finally:
+                db.close()
+        except Exception as error:
+            return error_response(error)
+
+    @router.post("/users/invite")
+    def invite_user(
+        body: InviteBody,
+        aegis_customer_session: str | None = Cookie(default=None),
+        x_csrf_token: str | None = Header(default=None),
+    ):
+        try:
+            db, service, active, actor = customer_context(
+                aegis_customer_session, x_csrf_token, require_csrf=True
+            )
+            try:
+                if actor.role not in {Role.OWNER, Role.ADMIN}:
+                    raise PermissionError("owner_access_required")
+                invited, token = service.invite_user(active.workspace_id, body.email)
+                workspace = db.get(Workspace, active.workspace_id)
+                db.commit()
+                delivered = bool(account_mailer and account_mailer.send_invitation(
+                    invited.email, token, workspace.company_name
+                ))
+                payload = {"ok": True, "invitation_email_sent": delivered}
+                if os.environ.get("AEGIS_DEV_EXPOSE_TOKENS") == "1":
+                    payload["invitation_token"] = token
+                return JSONResponse(payload, status_code=201)
+            finally:
+                db.close()
+        except Exception as error:
+            return error_response(error)
+
+    @router.post("/users/accept-invite")
+    def accept_invite(body: AcceptInviteBody):
+        with session_factory() as session:
+            try:
+                AccountService(session).accept_invite(body.token, body.password)
+                session.commit()
+                return {"ok": True}
+            except Exception as error:
+                session.rollback()
+                return error_response(error)
+
+    @router.delete("/users/{user_id}")
+    def disable_user(
+        user_id: str,
+        aegis_customer_session: str | None = Cookie(default=None),
+        x_csrf_token: str | None = Header(default=None),
+    ):
+        try:
+            db, service, active, actor = customer_context(
+                aegis_customer_session, x_csrf_token, require_csrf=True
+            )
+            try:
+                if actor.role not in {Role.OWNER, Role.ADMIN}:
+                    raise PermissionError("owner_access_required")
+                service.disable_user(active.workspace_id, actor.id, user_id)
+                db.commit()
+                return {"ok": True}
             finally:
                 db.close()
         except Exception as error:
@@ -439,6 +530,109 @@ def build_customer_router(session_factory, account_mailer=None) -> APIRouter:
         except Exception as error:
             return error_response(error)
         return HTMLResponse(html)
+
+    @router.get("/export")
+    def export_workspace_data(aegis_customer_session: str | None = Cookie(default=None)):
+        """Export customer-controlled records without credentials or internal secrets."""
+        try:
+            db, _, active, user = customer_context(aegis_customer_session)
+            try:
+                if user.role not in {Role.OWNER, Role.ADMIN}:
+                    raise PermissionError("owner_access_required")
+                workspace = db.get(Workspace, active.workspace_id)
+                users = db.scalars(select(WorkspaceUser).where(
+                    WorkspaceUser.workspace_id == active.workspace_id
+                )).all()
+                assets = db.scalars(select(ApprovedAsset).where(
+                    ApprovedAsset.workspace_id == active.workspace_id
+                )).all()
+                agreements = db.scalars(select(AgreementAcceptance).where(
+                    AgreementAcceptance.workspace_id == active.workspace_id
+                )).all()
+                observations = db.scalars(select(Observation).where(
+                    Observation.workspace_id == active.workspace_id
+                )).all()
+                reports = db.scalars(select(Report).where(
+                    Report.workspace_id == active.workspace_id
+                )).all()
+                payload = {
+                    "exported_at": utcnow().isoformat(),
+                    "workspace": {
+                        "id": workspace.id, "company_name": workspace.company_name,
+                        "status": workspace.status, "created_at": workspace.created_at.isoformat(),
+                    },
+                    "users": [{
+                        "id": item.id, "email": item.email, "role": item.role.value,
+                        "verified_at": item.email_verified_at.isoformat() if item.email_verified_at else None,
+                        "disabled_at": item.disabled_at.isoformat() if item.disabled_at else None,
+                    } for item in users],
+                    "assets": [{
+                        "id": item.id, "value": item.value, "status": item.status.value,
+                        "authority_confirmed_at": item.authority_confirmed_at.isoformat()
+                        if item.authority_confirmed_at else None,
+                        "removed_at": item.removed_at.isoformat() if item.removed_at else None,
+                    } for item in assets],
+                    "agreements": [{
+                        "policy_name": item.policy_name, "policy_version": item.policy_version,
+                        "policy_text_hash": item.policy_text_hash,
+                        "accepted_at": item.accepted_at.isoformat(),
+                    } for item in agreements],
+                    "observations": [{
+                        "id": item.id, "asset_id": item.asset_id, "status": item.status.value,
+                        "title": item.title, "observation": item.observation,
+                        "inference": item.inference, "severity": item.severity,
+                        "confidence": item.confidence, "source": item.source,
+                        "detected_at": item.detected_at.isoformat(),
+                    } for item in observations],
+                    "reports": [{
+                        "id": item.id, "period_start": item.period_start.isoformat(),
+                        "period_end": item.period_end.isoformat(), "status": item.status,
+                        "report": item.web_payload,
+                    } for item in reports],
+                }
+            finally:
+                db.close()
+        except Exception as error:
+            return error_response(error)
+        return JSONResponse(
+            payload,
+            headers={"Content-Disposition": 'attachment; filename="aegis-workspace-export.json"'},
+        )
+
+    @router.post("/cancel")
+    def cancel_workspace(
+        aegis_customer_session: str | None = Cookie(default=None),
+        x_csrf_token: str | None = Header(default=None),
+    ):
+        try:
+            db, _, active, user = customer_context(
+                aegis_customer_session, x_csrf_token, require_csrf=True
+            )
+            try:
+                if user.role != Role.OWNER:
+                    raise PermissionError("owner_access_required")
+                workspace = db.get(Workspace, active.workspace_id)
+                if workspace.cancelled_at is not None:
+                    raise ValueError("workspace_already_cancelled")
+                workspace.status = "cancelled"
+                workspace.cancelled_at = utcnow()
+                db.query(ApprovedAsset).filter(
+                    ApprovedAsset.workspace_id == active.workspace_id,
+                    ApprovedAsset.status == AssetStatus.APPROVED,
+                ).update({"status": AssetStatus.REMOVED, "removed_at": utcnow()})
+                from core.models import CustomerSession
+                db.query(CustomerSession).filter(
+                    CustomerSession.workspace_id == active.workspace_id,
+                    CustomerSession.revoked_at.is_(None),
+                ).update({"revoked_at": utcnow()})
+                db.commit()
+            finally:
+                db.close()
+        except Exception as error:
+            return error_response(error)
+        response = JSONResponse({"cancelled": True})
+        response.delete_cookie(CUSTOMER_COOKIE, path="/", samesite="strict")
+        return response
 
     @router.post("/password-reset/request")
     def request_password_reset(body: PasswordResetRequest):
