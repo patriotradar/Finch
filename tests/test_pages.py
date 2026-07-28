@@ -14,6 +14,9 @@ def test_public_customer_and_legal_pages(monkeypatch, tmp_path):
         assert landing.status_code == 200
         assert "Know what the public internet shows" in landing.text
         assert "£995" in landing.text
+        assert landing.headers["x-content-type-options"] == "nosniff"
+        assert landing.headers["x-frame-options"] == "DENY"
+        assert "frame-ancestors 'none'" in landing.headers["content-security-policy"]
         assert client.get("/chat").status_code == 200
         assert client.get("/account").status_code == 200
         assert client.get("/legal/privacy").status_code == 200

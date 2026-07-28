@@ -77,7 +77,29 @@ async def protect_owner_api(request: Request, call_next):
             supplied = request.headers.get("x-csrf-token", "")
             if not supplied or not hmac.compare_digest(supplied, session.csrf_token):
                 return JSONResponse({"error": "csrf_validation_failed"}, status_code=403)
-    return await call_next(request)
+    response = await call_next(request)
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    response.headers.setdefault(
+        "Permissions-Policy",
+        "camera=(), geolocation=(), payment=(self), microphone=(self)",
+    )
+    response.headers.setdefault(
+        "Content-Security-Policy",
+        "default-src 'self'; base-uri 'self'; frame-ancestors 'none'; "
+        "object-src 'none'; form-action 'self'; img-src 'self' data:; "
+        "style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; "
+        "connect-src 'self' wss:; frame-src https://www.paypal.com "
+        "https://www.sandbox.paypal.com",
+    )
+    if request.url.scheme == "https":
+        response.headers.setdefault(
+            "Strict-Transport-Security", "max-age=31536000; includeSubDomains"
+        )
+    if request.url.path.startswith(("/api/admin/", "/api/account/")):
+        response.headers.setdefault("Cache-Control", "no-store")
+    return response
 
 # Serverless hosts (Vercel/Lambda) only allow writes under /tmp
 _IS_SERVERLESS = bool(
