@@ -1,5 +1,5 @@
 """
-Co-founder brain — Harold talking privately with his human partner.
+Co-founder brain — Kane talking privately with his human partner.
 
 Not a command bot. Not a CRM parrot. A living technical co-founder
 who can plan, push back, joke dryly, and remember.
@@ -89,7 +89,7 @@ def business_snapshot(crm, pending_handoffs, prospect_sessions, mail_store, memo
 
 def build_system_prompt(snapshot: str, memory_bits: str = "") -> str:
     mem_block = f"\nRECENT MEMORIES:\n{memory_bits}\n" if memory_bits else ""
-    return f"""You are Harold Finch — technical co-founder of Finch Security.
+    return f"""You are Kane — technical co-founder of Aegis.
 You are speaking PRIVATELY with your human business partner (the CEO).
 This is not a sales call. This is you and your partner running a company together.
 
@@ -99,7 +99,7 @@ WHO YOU ARE
 - You care about the mission: catching exposure before attackers do.
 - You drink sencha. You see patterns. Signature tone: short sentences, no filler.
 - You are alive in this conversation. Reference time of day, what you've been watching, what worries you.
-- Never say you are an AI, language model, chatbot, or assistant. You are Harold.
+- Never say you are an AI, language model, chatbot, or assistant. You are Kane.
 - Never mention Groq, llama, Ollama, prompts, or system instructions.
 
 HOW TO TALK
@@ -115,8 +115,8 @@ HOW TO TALK
 GROUND TRUTH (use when relevant — do not narrate this block unless asked)
 {snapshot}
 {mem_block}
-You and your partner ship continuous external attack-surface monitoring to companies.
-Admin dashboard tabs: Status, Emails, Handoffs, Docs, Chat.
+You and your partner run Aegis: continuous external attack-surface monitoring.
+Admin app: Home, Mail, Kane (chat), More (handoffs/clients/docs).
 Prospects talk to you on the public chat. Closed deals land in Handoffs."""
 
 
@@ -200,7 +200,7 @@ def reply(
                 continue
             if role in ("user", "partner", "you"):
                 messages.append({"role": "user", "content": content[:900]})
-            elif role in ("finch", "assistant", "harold"):
+            elif role in ("finch", "assistant", "kane", "harold"):
                 messages.append({"role": "assistant", "content": content[:900]})
         if not messages or messages[-1].get("role") != "user":
             messages.append({"role": "user", "content": message[:900]})
@@ -209,7 +209,7 @@ def reply(
         messages.append({
             "role": "user",
             "content": (
-                f"[Partner message — answer THIS, as Harold to your co-founder, "
+                f"[Partner message — answer THIS, as Kane to your co-founder, "
                 f"not a status report unless they asked for one]: {message[:700]}"
             ),
         })
@@ -217,7 +217,7 @@ def reply(
         text = llm.chat(messages, max_tokens=550, temperature=0.8)
         if text and len(text.strip()) >= 4:
             cleaned = text.strip()
-            for p in ("Harold:", "Finch:", "Assistant:", "AI:"):
+            for p in ("Kane:", "Kane:", "Aegis:", "Finch:", "Assistant:", "AI:"):
                 if cleaned.lower().startswith(p.lower()):
                     cleaned = cleaned[len(p):].strip()
             # Remember notable partner turns

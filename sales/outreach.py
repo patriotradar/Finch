@@ -30,15 +30,15 @@ class OutreachEngine:
         best_plain = translate_text(best, "client")
         return {
             "subject": f"Security finding for {company}",
-            "body": f"Hi,\n\nI'm Harold Finch, technical co-founder at Finch Security. We monitor "
+            "body": f"Hi,\n\nI'm Kane, technical co-founder at Aegis. We monitor "
                     f"companies' external infrastructure — and {company} came up in our scans.\n\n"
                     f"I found something on your domain I'd want to know about if it were mine:\n\n"
                     f"{best_plain}\n\n"
                     f"I'd be happy to walk you through the full picture — no pitch, just what "
                     f"I found and what it means in plain English.\n\n"
                     f"{chat_ps}"
-                    f"Best,\nHarold Finch\n"
-                    f"Technical Co-Founder, Finch Security"
+                    f"Best,\nKane\n"
+                    f"Technical Co-Founder, Aegis"
         }
 
     def craft_followup_email(self, lead, seq):
@@ -48,15 +48,15 @@ class OutreachEngine:
              "body": f"Hi,\n\nI wanted to follow up on my earlier note. I know inboxes are brutal — "
                      f"just making sure it didn't get buried.\n\nThe short version: your external attack "
                      f"surface has exposures that attackers actively scan for. I can show you what and how "
-                     f"to fix it.\n\nNo pressure.\n\nHarold"},
+                     f"to fix it.\n\nNo pressure.\n\nKane"},
             {"subject": f"Quick security tip for {company}",
              "body": f"Hi,\n\nOne free tip while you think about it: make sure SPF, DKIM, and DMARC are "
                      f"set up. This alone stops 90% of domain impersonation attacks. Happy to verify yours.\n\n"
-                     f"Harold"},
+                     f"Kane"},
             {"subject": f"Last note — {company}",
              "body": f"Hi,\n\nLast email from me. If the timing isn't right or you've got this covered, "
                      f"just say so and I'll stop.\n\nIf you do want the free assessment, reply \"yes.\"\n\n"
-                     f"Either way — I hope you never need what I build.\n\nHarold"},
+                     f"Either way — I hope you never need what I build.\n\nKane"},
         ]
         return templates[min(seq - 1, len(templates) - 1)]
 
@@ -69,7 +69,7 @@ class OutreachEngine:
         if self.sent_today >= self.daily_limit:
             return False
         msg = MIMEMultipart()
-        msg["From"] = f"Harold Finch <{from_addr}>"
+        msg["From"] = f"Kane <{from_addr}>"
         msg["To"] = to_address
         msg["Subject"] = content["subject"]
         msg.attach(MIMEText(content["body"], "plain"))
@@ -119,14 +119,14 @@ class OutreachEngine:
         chat_ps = self._chat_postscript()
         return {
             "subject": f"Your external attack surface — {company}",
-            "body": f"Hi,\n\nI'm Harold Finch, technical co-founder at Finch Security. We monitor "
+            "body": f"Hi,\n\nI'm Kane, technical co-founder at Aegis. We monitor "
                     f"companies' external infrastructure — and {company} has a digital footprint "
                     f"worth protecting.\n\n"
                     f"I'd be happy to show you what's visible from the outside — no charge, no "
                     f"commitment. Takes about 90 seconds.\n\n"
                     f"{chat_ps}"
-                    f"Best,\nHarold Finch\n"
-                    f"Technical Co-Founder, Finch Security"
+                    f"Best,\nKane\n"
+                    f"Technical Co-Founder, Aegis"
         }
 
     def _chat_postscript(self):

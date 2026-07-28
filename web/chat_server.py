@@ -46,7 +46,7 @@ def load_config():
     return {}
 
 
-app = FastAPI(title="Finch Security", version="2.0")
+app = FastAPI(title="Aegis", version="2.0")
 config = load_config()
 ADMIN_PASSWORD = os.environ.get("FINCH_ADMIN_PASSWORD", "finch")
 
@@ -174,7 +174,7 @@ async def prospect_websocket(websocket: WebSocket, prospect_id: str):
         )
         prospect_sessions[prospect_id] = state
         greeting = (
-            "Hello. I'm Harold — I handle the technical side at Finch Security. "
+            "Hello. I'm Kane — I handle the technical side at Aegis. "
             "You're here because you're wondering whether your organization has "
             "security exposure you don't know about. What's on your mind?"
         )
@@ -360,7 +360,7 @@ async def api_prospect_chat(request: Request):
         _save_session("p", prospect_id, state)
         if start or not message or message.lower() in ("/reset", "/restart"):
             greeting = (
-                "Hello. I'm Harold — technical co-founder at Finch Security. "
+                "Hello. I'm Kane — technical co-founder at Aegis. "
                 "We track what of your company is exposed on the open internet before "
                 "someone else does. What's on your mind?"
             )
@@ -450,7 +450,7 @@ async def api_prospect_chat(request: Request):
 
 @app.post("/api/admin/chat")
 async def api_admin_chat(request: Request):
-    """Co-founder chat — full living Harold, not a CRM parrot."""
+    """Co-founder chat — full living Kane, not a CRM parrot."""
     body = await request.json()
     admin_id = (body.get("admin_id") or "phone")[:64]
     message = (body.get("content") or "").strip()
@@ -635,9 +635,9 @@ PROSPECT_HTML = """<!DOCTYPE html>
 <meta name="theme-color" content="#0a0a0f">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Finch">
+<meta name="apple-mobile-web-app-title" content="Aegis">
 <link rel="manifest" href="/manifest.json">
-<title>Talk to Finch Security</title>
+<title>Talk to Aegis</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body { height: 100%; overflow: hidden; }
@@ -703,7 +703,7 @@ PROSPECT_HTML = """<!DOCTYPE html>
   <div class="chat-header">
     <div class="avatar">F</div>
     <div class="info">
-      <h3>Harold Finch</h3>
+      <h3>Kane</h3>
       <span><span class="dot"></span>Online now</span>
     </div>
   </div>

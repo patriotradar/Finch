@@ -23,7 +23,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 
 # Always export an app so the runtime never dies at import
-app = FastAPI(title="Finch", version="2.0")
+app = FastAPI(title="Aegis", version="2.0")
 
 _finch = None
 _finch_error = None
@@ -62,7 +62,7 @@ async def catch_all(full_path: str, request: Request):
     if fapp is None:
         body = (
             "<html><body style='font-family:monospace;background:#0a0a0f;color:#f87171;padding:24px'>"
-            "<h1>Finch failed to start</h1>"
+            "<h1>Aegis failed to start</h1>"
             f"<pre style='white-space:pre-wrap;color:#fecaca'>{_finch_error or 'unknown'}</pre>"
             "</body></html>"
         )

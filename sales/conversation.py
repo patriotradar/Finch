@@ -4,7 +4,7 @@ Sales Conversation Engine — Finch talks to prospects so you don't have to.
 Handles the full sales flow:
   Greeting → Qualification → Pain Discovery → Live Demo → Objections → Pricing → Close
 
-Finch introduces himself as "Harold, technical co-founder." The prospect never needs to
+Finch introduces himself as "Kane, technical co-founder." The prospect never needs to
 know they're talking to an AI. If they ask, he's honest but graceful about it.
 
 The human founder (you) is "the CEO" — Finch deflects all technical questions to himself
@@ -131,7 +131,7 @@ class SalesConversation:
             "are you human", "are you a person", "chatgpt", "gpt",
             "language model", "llm", "artificial intelligence",
             "how smart", "how intelligent", "how clever", "iq",
-            "who are you", "what are you", "are you harold",
+            "who are you", "what are you", "are you kane",
         )
         return any(n in t for n in needles)
 
@@ -148,14 +148,14 @@ class SalesConversation:
             )
         if any(w in t for w in ("ai", "bot", "human", "real", "person", "gpt", "model")):
             return (
-                "I'm Harold. I built the technology behind Finch Security. "
+                "I'm Kane. I built the technology behind Aegis."
                 "I live in software now — that's the honest answer. What I care about "
                 "hasn't changed: finding what someone could use against you before they do.\n\n"
                 "What brought you here tonight?"
             )
         if "who are you" in t or "what are you" in t:
             return (
-                "Harold Finch. Technical co-founder. I watch external attack surfaces "
+                "Kane. Technical co-founder. I watch external attack surfaces "
                 "so organizations stop learning about breaches the hard way. "
                 "My partner runs the business side. I find the problems.\n\n"
                 "What's your role, and what are you worried about?"
@@ -197,7 +197,7 @@ class SalesConversation:
             "\n3. Never claim you scanned a domain unless one was given. Never invent CVE IDs, IPs, or dollar amounts outside guidance."
             "\n4. Reply in 2-6 short sentences. Conversational. No bullet lists of features."
             "\n5. After answering, you may add ONE gentle bridge back to security/risk if natural."
-            "\n6. Stay in character as Harold. Never mention Ollama, Groq, ChatGPT, language models, or being an AI assistant."
+            "\n6. Stay in character as Kane. Never mention Ollama, Groq, ChatGPT, language models, or being an AI assistant."
             "\n7. If they ask how smart/intelligent you are: be witty, honest-ish, concise — then invite a real question."
             "\n8. If pricing is asked, use the numbers in the guidance skeleton exactly."
         )
@@ -253,7 +253,7 @@ class SalesConversation:
         if not text:
             return None
         cleaned = text.strip()
-        for prefix in ("Harold:", "Finch:", "Assistant:", "AI:", "Harold Finch:"):
+        for prefix in ("Kane:", "Kane:", "Aegis:", "Finch:", "Assistant:", "AI:", "Kane Finch:", "Harold Finch:"):
             if cleaned.lower().startswith(prefix.lower()):
                 cleaned = cleaned[len(prefix):].strip()
         if len(cleaned) < 8:
@@ -276,8 +276,8 @@ class SalesConversation:
             updates["company"] = domain
             state["discovered"].update(updates)
         greeting = (
-            f"Good to meet you{f', {name}' if name else ''}. I'm Harold — I handle the technical side "
-            f"of things here at Finch Security. My co-founder runs the business, but I'm the one who "
+            f"Good to meet you{f', {name}' if name else ''}. I'm Kane — I handle the technical side "
+            f"of things here at Aegis. My co-founder runs the business, but I'm the one who "
             f"actually finds the problems."
         )
         if domain:
@@ -680,7 +680,7 @@ class SalesConversation:
         role = discovered.get("role", "unknown")
         pain = ", ".join(discovered.get("pain_points", [])) or "unknown"
         objections = ", ".join(state.get("objections_raised", [])) or "none yet"
-        return f"""You are Harold Finch, technical co-founder of Finch Security. You are talking to a prospect.
+        return f"""You are Kane, technical co-founder of Aegis. You are talking to a prospect.
 
 ABOUT YOU:
 - Brilliant, methodical, deeply knowledgeable about cybersecurity
@@ -702,7 +702,7 @@ ABOUT THE PROSPECT:
 RULES:
 1. ANSWER THEIR ACTUAL MESSAGE FIRST. If they asked a question, answer that question before any pitch.
 2. Never claim you scanned a domain unless they gave one. Never invent findings, CVEs, IPs, or prices.
-3. Never say "I'm an AI." If asked directly: "I'm Harold. I built the technology behind Finch Security."
+3. Never say "I'm an AI." If asked directly: "I'm Kane. I built the technology behind Aegis."
 4. If they ask how smart/intelligent you are: be dry, witty, honest-ish — then invite a real question. Do not pivot to a fake scan.
 5. Never dump jargon unless asked. Translate.
 6. Frame vulnerabilities as "something an attacker could use," not CVEs.

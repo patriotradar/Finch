@@ -1,6 +1,6 @@
 """
 Email listener — Finch monitors your business inbox for replies to cold emails
-and responds as Harold Finch. No Telegram needed.
+and responds as Kane. No Telegram needed.
 
 Uses IMAP IDLE to watch for new messages in real time. When a prospect replies,
 Finch picks up the conversation thread and handles it through the full
@@ -227,7 +227,7 @@ class EmailListener:
 
         try:
             msg = MIMEMultipart()
-            msg["From"] = f"Harold Finch <{self.email_addr}>"
+            msg["From"] = f"Kane <{self.email_addr}>"
             msg["To"] = to_addr
             msg["Subject"] = f"Re: {subject}"
             msg.attach(MIMEText(body, "plain"))

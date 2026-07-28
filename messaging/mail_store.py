@@ -56,10 +56,10 @@ class MailStore:
                 "direction": "inbound",
                 "status": "unread",
                 "from": "jordan@northline.io",
-                "to": "harold@finch.security",
+                "to": "kane@aegis.security",
                 "subject": "Re: Security finding for Northline",
                 "body": (
-                    "Harold — interesting. Who is this, and how'd you find that subdomain? "
+                    "Kane — interesting. Who is this, and how'd you find that subdomain? "
                     "I'm the CTO. Happy to hear more if this isn't a cold spray."
                 ),
                 "created_at": _now(),
@@ -71,11 +71,11 @@ class MailStore:
                 "folder": "sent",
                 "direction": "outbound",
                 "status": "sent",
-                "from": "harold@finch.security",
+                "from": "kane@aegis.security",
                 "to": "jordan@northline.io",
                 "subject": "Security finding for Northline",
                 "body": (
-                    "Hi Jordan,\n\nI'm Harold Finch, technical co-founder at Finch Security. "
+                    "Hi Jordan,\n\nI'm Kane, technical co-founder at Aegis. "
                     "We monitor external infrastructure — Northline came up in our scans.\n\n"
                     "I found an exposed staging host on a stale DNS record. It's the kind of "
                     "door attackers scan for first.\n\nHappy to walk you through it in plain "
@@ -90,11 +90,11 @@ class MailStore:
                 "folder": "drafts",
                 "direction": "outbound",
                 "status": "draft",
-                "from": "harold@finch.security",
+                "from": "kane@aegis.security",
                 "to": "ceo@acmecorp.com",
                 "subject": "Security finding for Acme Corp",
                 "body": (
-                    "Hi,\n\nI'm Harold Finch at Finch Security. A quick external look at "
+                    "Hi,\n\nI'm Kane at Aegis. A quick external look at "
                     "acmecorp.com surfaced a few items I'd want to know about if it were mine.\n\n"
                     "Five-minute walkthrough, free, no commitment. Reply or chat here:\n"
                     "{chat}\n\nHarold"
@@ -108,14 +108,14 @@ class MailStore:
                 "folder": "outbox",
                 "direction": "outbound",
                 "status": "queued",
-                "from": "harold@finch.security",
+                "from": "kane@aegis.security",
                 "to": "ciso@brightpath.health",
                 "subject": "Quick note on Brightpath's external surface",
                 "body": (
-                    "Hi,\n\nHarold Finch here. Healthcare attack surfaces change quietly — "
+                    "Hi,\n\nKane here. Healthcare attack surfaces change quietly — "
                     "patient portals, vendor SaaS, forgotten FHIR endpoints.\n\n"
                     "I can show you a plain-English map of what's exposed from the outside.\n\n"
-                    "Harold"
+                    "Kane"
                 ),
                 "created_at": _now(),
                 "thread": "brightpath",
@@ -199,7 +199,7 @@ class MailStore:
             "folder": "drafts" if as_draft else "outbox",
             "direction": "outbound",
             "status": "draft" if as_draft else "queued",
-            "from": from_addr or os.environ.get("FINCH_EMAIL") or "harold@finch.security",
+            "from": from_addr or os.environ.get("FINCH_EMAIL") or "kane@aegis.security",
             "to": (to or "").strip(),
             "subject": (subject or "").strip() or "(no subject)",
             "body": body or "",
@@ -255,7 +255,7 @@ class MailStore:
         port = int(os.environ.get("FINCH_SMTP_PORT", "587"))
         try:
             msg = MIMEMultipart()
-            msg["From"] = f"Harold Finch <{from_addr}>"
+            msg["From"] = f"Kane <{from_addr}>"
             msg["To"] = m["to"]
             msg["Subject"] = m["subject"]
             msg.attach(MIMEText(m.get("body") or "", "plain"))
@@ -292,7 +292,7 @@ class MailStore:
             "direction": "inbound",
             "status": "unread",
             "from": from_addr,
-            "to": to or os.environ.get("FINCH_EMAIL") or "harold@finch.security",
+            "to": to or os.environ.get("FINCH_EMAIL") or "kane@aegis.security",
             "subject": subject,
             "body": body,
             "created_at": _now(),
@@ -316,24 +316,24 @@ class MailStore:
         company = company or "your organization"
         if finding:
             body = (
-                f"Hi,\n\nI'm Harold Finch, technical co-founder at Finch Security. "
+                f"Hi,\n\nI'm Kane, technical co-founder at Aegis. "
                 f"We monitor external infrastructure — and {company} came up.\n\n"
                 f"I found something I'd want to know about if it were mine:\n\n"
                 f"{finding}\n\n"
                 f"Happy to walk you through the full picture in plain English. "
                 f"No pitch, five minutes.\n\n"
                 f"Or chat live: {chat}\n\n"
-                f"Best,\nHarold Finch\nTechnical Co-Founder, Finch Security"
+                f"Best,\nHarold Finch\nTechnical Co-Founder, Aegis"
             )
             subject = f"Security finding for {company}"
         else:
             body = (
-                f"Hi,\n\nI'm Harold Finch at Finch Security. I help teams see what "
+                f"Hi,\n\nI'm Kane at Aegis. I help teams see what "
                 f"their internet perimeter actually looks like from the outside.\n\n"
                 f"Most organizations have 3–5× more exposed assets than they track. "
                 f"I'd like to show you {company}'s picture — free, plain English, no commitment.\n\n"
                 f"Chat: {chat}\n\n"
-                f"Harold Finch"
+                f"Kane"
             )
             subject = f"A quick look at {company}'s external surface"
         return {"subject": subject, "body": body, "to": email, "company": company}

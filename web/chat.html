@@ -6,10 +6,10 @@
 <meta name="theme-color" content="#07070b">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Finch">
-<meta name="description" content="Talk to Harold Finch — technical co-founder at Finch Security. Continuous external attack-surface monitoring.">
+<meta name="apple-mobile-web-app-title" content="Aegis">
+<meta name="description" content="Talk to Kane — technical co-founder at Aegis. Continuous external attack-surface monitoring.">
 <link rel="manifest" href="/manifest.json">
-<title>Finch Security — Talk to Harold</title>
+<title>Aegis — Talk to Kane</title>
 <style>
   :root {
     --bg:#07070b; --bg2:#0c0c12; --bg3:#12121a; --line:#1f1f2c; --line2:#2a2a3a;
@@ -96,10 +96,10 @@
 <body>
 <div class="app">
   <header>
-    <div class="avatar">H</div>
+    <div class="avatar">K</div>
     <div class="info">
-      <h1>Harold Finch</h1>
-      <p>Technical co-founder · Finch Security</p>
+      <h1>Kane</h1>
+      <p>Technical co-founder · Aegis</p>
     </div>
     <div class="live"><i></i> Online</div>
   </header>
@@ -111,10 +111,10 @@
     <button type="button" data-q="I'm not sure I need this.">I'm not sure</button>
   </div>
   <div class="composer">
-    <input id="msg" type="text" placeholder="Message Harold…" autocomplete="off" enterkeyhint="send">
+    <input id="msg" type="text" placeholder="Message Kane…" autocomplete="off" enterkeyhint="send">
     <button type="button" id="send" aria-label="Send">↑</button>
   </div>
-  <footer>Finch Security · continuous external attack-surface monitoring</footer>
+  <footer>Aegis · continuous external attack-surface monitoring</footer>
 </div>
 <script>
 (function () {
@@ -133,7 +133,7 @@
     const d = document.createElement('div');
     d.className = 'bubble ' + (who === 'you' ? 'you' : 'finch');
     if (who !== 'you') {
-      const w = document.createElement('div'); w.className = 'who'; w.textContent = 'Harold'; d.appendChild(w);
+      const w = document.createElement('div'); w.className = 'who'; w.textContent = 'Kane'; d.appendChild(w);
     }
     d.appendChild(document.createTextNode(text));
     msgs.appendChild(d); msgs.scrollTop = msgs.scrollHeight; return d;
@@ -155,7 +155,7 @@
     try {
       const d = await api({ start: true });
       t.remove();
-      bubble('finch', d.content || "Hello. I'm Harold.");
+      bubble('finch', d.content || "Hello. I'm Kane.");
     } catch (e) {
       t.remove();
       bubble('finch', "Connection hitch. Refresh and we'll start again.");
