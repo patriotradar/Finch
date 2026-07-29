@@ -52,12 +52,18 @@ def migrate_to_head() -> None:
         is_postgres = connection.dialect.name == "postgresql"
         if is_postgres:
             connection.execute(text("SELECT pg_advisory_lock(641347204716)"))
+            connection.commit()
         try:
             config.attributes["connection"] = connection
             command.upgrade(config, "head")
+            connection.commit()
+        except Exception:
+            connection.rollback()
+            raise
         finally:
             if is_postgres:
                 connection.execute(text("SELECT pg_advisory_unlock(641347204716)"))
+                connection.commit()
 
 
 @contextmanager
