@@ -32,3 +32,4 @@ def test_public_customer_and_legal_pages(monkeypatch, tmp_path):
         assert client.get("/brand/aegis-icon-512.png").status_code == 200
         assert client.get("/brand/aegis-email-signature.png").status_code == 200
         assert client.get("/favicon.ico").status_code == 200
+        assert "PayPal checkout" in client.get("/admin").text

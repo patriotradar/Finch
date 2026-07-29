@@ -41,6 +41,7 @@ from core.database import build_session_factory
 from web.customer_api import build_customer_router
 from core.controls import ControlService
 from core.owner_assistant import OwnerConversationService, build_daily_briefing
+from core.paypal_checkout import PayPalCheckout
 from sales.outreach_policy import OptOutTokens, OutreachPolicy
 from messaging.account_mailer import AccountMailer
 import yaml
@@ -547,6 +548,8 @@ async def admin_dashboard():
         int((c.get("price") or {}).get("annual_price") or (c.get("price") or {}).get("annual") or 0)
         for c in clients
     )
+    paypal = PayPalCheckout()
+    paypal_environment = (os.environ.get("PAYPAL_ENVIRONMENT") or "sandbox").lower()
 
     return JSONResponse({
         "pending_handoffs": handoffs,
@@ -558,6 +561,13 @@ async def admin_dashboard():
         "memory_count": memory.count() if memory else 0,
         "active_clients": len(clients),
         "annual_revenue": annual_revenue,
+        "paypal": {
+            "configured": paypal.configured,
+            "environment": paypal_environment if paypal_environment in {"sandbox", "live"} else "invalid",
+            "client_id_present": bool(os.environ.get("PAYPAL_CLIENT_ID")),
+            "client_secret_present": bool(os.environ.get("PAYPAL_CLIENT_SECRET")),
+            "annual_price_gbp": 995,
+        },
         "total_deals": pipeline.get("total_deals", 0),
         "brain_online": brain_ok,
         "leads": lead_pipeline.summary(),

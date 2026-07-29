@@ -583,6 +583,7 @@
     const clients = d.clients || [];
     const realClients = clients;
     const annualRevenue = Number(d.annual_revenue || 0);
+    const paypal = d.paypal || {};
 
     let actions = '';
     unread.slice(0, 3).forEach(m => {
@@ -615,6 +616,20 @@
       '<a class="btn ghost sm" href="/" target="_blank" rel="noopener">Open public chat</a>' +
       '</div></div>';
 
+    const paypalCard =
+      '<div class="card" style="margin-top:4px">' +
+      '<div class="sec-head"><h3>PayPal checkout</h3><span class="tag ' +
+      (paypal.configured ? 'sent' : 'queued') + '">' +
+      (paypal.configured ? 'Configured' : 'Setup required') + '</span></div>' +
+      '<div class="note">' +
+      (paypal.configured
+        ? 'PayPal ' + esc(paypal.environment || 'sandbox') + ' credentials are connected. Customer checkout is fixed at £' + Number(paypal.annual_price_gbp || 995) + ' for 12 months.'
+        : 'Add PAYPAL_CLIENT_ID, PAYPAL_CLIENT_SECRET and PAYPAL_ENVIRONMENT as protected Vercel variables. For security, Aegis never stores or displays the PayPal secret.') +
+      '</div><div class="row" style="margin-top:10px">' +
+      '<a class="btn sm" href="https://developer.paypal.com/dashboard/applications/sandbox" target="_blank" rel="noopener">Open PayPal setup</a>' +
+      '<a class="btn ghost sm" href="https://vercel.com/patriotradars-projects/finch-ocxl/settings/environment-variables" target="_blank" rel="noopener">Add secure variables</a>' +
+      '</div></div>';
+
     content.innerHTML =
       '<div class="greet"><div class="hi">' + greetLine() + '</div>' +
       '<div class="sub">Harold is ' + (d.brain_online ? 'online and working with you.' : 'offline — replies may be limited.') +
@@ -627,6 +642,7 @@
       '</div>' +
       '<div class="card"><div class="sec-head"><h3>Needs you</h3><button type="button" class="link-btn" data-go="mail">All mail</button></div>' +
       actions + '</div>' +
+      paypalCard +
       nextSteps;
 
     content.querySelectorAll('[data-go]').forEach(el => {
