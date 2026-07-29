@@ -99,6 +99,13 @@ class AccountService:
             workspace.status = "trial_pending_payment"
         return user
 
+    def request_verification(self, email: str) -> str | None:
+        email = normalize_email(email)
+        user = self.session.scalar(select(WorkspaceUser).where(WorkspaceUser.email == email))
+        if user is None or user.disabled_at is not None or user.email_verified_at is not None:
+            return None
+        return self._issue_account_token(user.id, "verify_email")
+
     def request_password_reset(self, email: str) -> str | None:
         email = normalize_email(email)
         user = self.session.scalar(select(WorkspaceUser).where(WorkspaceUser.email == email))

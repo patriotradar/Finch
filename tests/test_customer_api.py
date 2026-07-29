@@ -64,6 +64,34 @@ def test_customer_session_and_logout(monkeypatch):
         assert api.get("/api/account/session").status_code == 401
 
 
+def test_unverified_customer_can_request_a_new_verification_link(monkeypatch):
+    engine = build_engine("sqlite://")
+    Base.metadata.create_all(engine)
+
+    class Mailer:
+        sent_to = None
+
+        def send_verification(self, recipient, token):
+            self.sent_to = recipient
+            return bool(token)
+
+    mailer = Mailer()
+    app = FastAPI()
+    app.include_router(build_customer_router(build_session_factory(engine), mailer))
+    with TestClient(app) as api:
+        assert api.post("/api/account/register", json={
+            "company_name": "Resend Ltd",
+            "email": "owner@resend.example",
+            "password": "SecureAccount42",
+        }).status_code == 201
+        resent = api.post("/api/account/verification/resend", json={
+            "email": "owner@resend.example",
+        })
+        assert resent.status_code == 200
+        assert resent.json()["verification_email_sent"] is True
+        assert mailer.sent_to == "owner@resend.example"
+
+
 def test_owner_invites_user_and_member_accepts(monkeypatch):
     with client(monkeypatch) as api:
         csrf = verified_login(api)

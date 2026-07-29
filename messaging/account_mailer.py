@@ -17,6 +17,8 @@ class AccountMailer:
         port = int(os.environ.get("FINCH_SMTP_PORT") or "587")
         if not sender or not password:
             return False
+        if host.lower() == "smtp.gmail.com":
+            password = password.replace(" ", "")
         message = EmailMessage()
         message["From"] = f"Harold from Aegis <{sender}>"
         message["To"] = recipient
@@ -28,12 +30,21 @@ class AccountMailer:
                 smtp.login(sender, password)
                 smtp.send_message(message)
             return True
-        except Exception:
+        except Exception as error:
+            print(f"[Aegis SMTP] delivery failed: {type(error).__name__}")
             return False
 
     @staticmethod
     def _base_url() -> str:
-        return (os.environ.get("AEGIS_PUBLIC_URL") or os.environ.get("FINCH_WEB_CHAT_URL") or "").rstrip("/")
+        explicit = os.environ.get("AEGIS_PUBLIC_URL") or os.environ.get("FINCH_WEB_CHAT_URL")
+        if explicit:
+            return explicit.rstrip("/")
+        vercel_url = (
+            os.environ.get("VERCEL_PROJECT_PRODUCTION_URL")
+            or os.environ.get("VERCEL_URL")
+            or ""
+        ).strip()
+        return f"https://{vercel_url.rstrip('/')}" if vercel_url else ""
 
     def send_verification(self, recipient: str, token: str) -> bool:
         base = self._base_url()

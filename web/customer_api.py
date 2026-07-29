@@ -155,6 +155,25 @@ def build_customer_router(session_factory, account_mailer=None) -> APIRouter:
                 session.rollback()
                 return error_response(error)
 
+    @router.post("/verification/resend")
+    def resend_verification(body: PasswordResetRequest):
+        token = None
+        recipient = body.email.strip().lower()
+        with session_factory() as session:
+            try:
+                token = AccountService(session).request_verification(recipient)
+                session.commit()
+            except Exception:
+                session.rollback()
+        delivered = bool(
+            token and account_mailer and account_mailer.send_verification(recipient, token)
+        )
+        return {
+            "ok": True,
+            "message": "If an unverified account exists, a new link has been requested.",
+            "verification_email_sent": delivered,
+        }
+
     @router.post("/login")
     def login(body: LoginBody, request: Request):
         key = f"{request.client.host if request.client else 'unknown'}:{body.email.strip().lower()}"

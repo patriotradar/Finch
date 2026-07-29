@@ -22,12 +22,22 @@ class PayPalCheckout:
     ):
         self.client_id = client_id or os.environ.get("PAYPAL_CLIENT_ID") or ""
         self.client_secret = client_secret or os.environ.get("PAYPAL_CLIENT_SECRET") or ""
-        self.public_url = (
+        explicit_url = (
             public_url
             or os.environ.get("AEGIS_PUBLIC_URL")
             or os.environ.get("FINCH_WEB_CHAT_URL")
             or ""
-        ).rstrip("/")
+        )
+        vercel_url = (
+            os.environ.get("VERCEL_PROJECT_PRODUCTION_URL")
+            or os.environ.get("VERCEL_URL")
+            or ""
+        )
+        self.public_url = (
+            explicit_url.rstrip("/")
+            if explicit_url
+            else f"https://{vercel_url.rstrip('/')}" if vercel_url else ""
+        )
         selected = (environment or os.environ.get("PAYPAL_ENVIRONMENT") or "sandbox").lower()
         self.api_base = (
             "https://api-m.paypal.com"
