@@ -32,6 +32,9 @@ def _load_finch():
     if _finch_error is not None:
         return None
     try:
+        from core.database import migrate_to_head  # noqa: WPS433
+
+        migrate_to_head()
         from web import chat_server as cs  # noqa: WPS433
         _finch = cs.app
         return _finch

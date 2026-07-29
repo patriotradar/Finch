@@ -4,8 +4,11 @@ from __future__ import annotations
 
 import os
 from contextlib import contextmanager
+from pathlib import Path
 
-from sqlalchemy import create_engine
+from alembic import command
+from alembic.config import Config
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -36,6 +39,25 @@ def build_engine(url: str | None = None):
 
 def build_session_factory(engine=None):
     return sessionmaker(bind=engine or build_engine(), expire_on_commit=False, class_=Session)
+
+
+def migrate_to_head() -> None:
+    """Apply committed migrations before serving database-backed requests."""
+    root = Path(__file__).resolve().parents[1]
+    config = Config(str(root / "alembic.ini"))
+    config.set_main_option("script_location", str(root / "migrations"))
+    engine = build_engine()
+
+    with engine.connect() as connection:
+        is_postgres = connection.dialect.name == "postgresql"
+        if is_postgres:
+            connection.execute(text("SELECT pg_advisory_lock(641347204716)"))
+        try:
+            config.attributes["connection"] = connection
+            command.upgrade(config, "head")
+        finally:
+            if is_postgres:
+                connection.execute(text("SELECT pg_advisory_unlock(641347204716)"))
 
 
 @contextmanager
